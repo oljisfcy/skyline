@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cubic Table</title>
+    <link rel="stylesheet" href="font-awesome/css/font-awesome.min.css">
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            background-color: #88b4ff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+        }
+
+        .view {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, 60px);
+            justify-content: center;
+            min-width: 90%;
+
+            /* display: flex;
+            flex-direction: row;
+            justify-content: center;
+            flex-wrap: wrap; */
+            background-color: aliceblue;
+            padding: 10px;
+            margin: 20px 10px;
+            border-radius: 12px;
+        }
+        .view:last-child {
+            margin-right: auto;
+        }
+
+        /* .view::after {
+            content: '';
+            flex: auto;
+        } */
+        .cubic {
+            width: 50px;
+            height: 50px;
+            margin: 5px;
+            border-radius: 10%;
+            font-size: 20px;
+            color: #fff;
+            background-color: #88b4ff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0px 0px 2px 0px rgba(0,0,0,0.4);
+            cursor: pointer;
+            /* 解决手机点击有高亮蓝框 */
+            -webkit-tap-highlight-color: rgba(255,0,0,0);
+            -webkit-appearance: none;
+            /* 文字不可选中，但发现Quark仍能选 */
+            user-select: none;
+            -webkit-user-select:none;
+            -moz-user-select:none;     -ms-user-select:none;
+        }
+        .cubic::before {
+            /* content: "";
+            position: absolute;
+            z-index: -1;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            border: 2px solid #88b4ff;
+            border-radius: 10%;
+            transform-origin: center; */
+        }
+        .cubic.active {
+            background-color: #ffd388;
+            box-shadow: none;
+        }
+
+        .control {
+            display: flex;
+            flex-direction: row;
+            justify-content: center;
+            align-items: center;
+        }
+        .control span {
+            width: 50px;
+        }
+
+        #numberView {
+            position: relative;
+        }
+        #numberView .input {
+            /* 使用浮动布局实现flex下子元素的宽度变化而不影响flex下元素的位置变动 */
+            float: right;
+            background-color: aliceblue;
+            margin: 15px 5px;
+            border: 0;
+            border-radius: 4px;
+            text-align: left;
+            font-size: 18px;
+            width: 40px;
+            height: 40px;
+            transition: width 0.3s ease;
+            padding: 15px;
+        }
+        #numberView.active .input {
+            width: 100px;
+        }
+        #numberView .operation {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        button.operation {
+            width: 40px;
+            height: 40px;
+            border: none;
+            border-radius: 10%;
+            background-color: aliceblue;
+            color: #79a5f2;
+            margin: 15px 5px;
+            cursor: pointer;
+        }
+        button:focus, input:focus {
+            outline: none;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="view">
+    </div>
+    <div class="control">
+        <span id="numberView">
+            <input type="text" class="input" maxlength="3">
+            <button type="button" class="operation" id="number"><i class="fa fa-gear fa-2x"></i></button>
+        </span>
+        <span>
+            <button type="button" class="operation" id="reset"><i class="fa fa-undo fa-2x"></i></button>
+        </span>
+        <span>
+            <button type="button" class="operation" id="random"><i class="fa fa-refresh fa-2x"></i></button>
+        </span>
+    </div>
+</body>
+<script>
+    var DEBUG = false;
+    var cubics;
+    var number = parseInt(window.localStorage.getItem('number')),
+        cubicSet = new Set(eval('['+window.localStorage.getItem('cubicSet')+']'));
+    // 默认15个方格
+    if(!number) { number = 15; if(DEBUG){console.log(无cubicArray);}} 
+    if(!cubicSet) { cubicSet = [1,2,3]; }
+
+    const numberBtn = document.getElementById('number');
+    const numberView = document.getElementById('numberView');
+    const input = document.querySelector('.input');
+    const view = document.querySelector('.view');
+
+    // Initialization
+    window.onload = () => {
+        if (DEBUG) {
+            console.log('载入数据...')
+            console.log(`方块数量：${number}`);
+            console.log(`方块标记：${cubicSet}`);
+        }
+        alterCubicNumber(number);
+        flipByCubicArray();
+    }
+
+    function addFlipEvent(){
+        cubics = document.querySelectorAll(".cubic");
+        for(let [i,cubic] of Object.entries(cubics)){
+            cubic.addEventListener("click", () => {
+                cubic.classList.toggle('active');
+                if(cubic.classList.contains('active')){
+                    cubicSet.add(i);
+                } else {
+                    cubicSet.delete(i);
+                }
+                window.localStorage.setItem('cubicSet', cubicSet);
+            })
+        }
+        if (DEBUG) {console.log('flip');}
+    }
+
+    function flipByCubicArray(){
+        for (const i of cubicSet) {
+            cubics[i].classList.add('active');
+        }
+    }
+
+    document.onkeydown = function(event){
+        var e = event || window.event || arguments.callee.caller.arguments[0];
+        if(e && e.keyCode == 13){  // Enter
+            numberBtn.click();
+        }
+        if (e && e.keyCode == 90) {  // Z
+            resetBtn.click();
+        }
+        if (e && e.keyCode == 82) {  // R
+            randomBtn.click();
+        }
+    }
+
+    function alterCubicNumber(n){
+        view.innerHTML = '';
+        for (let i = 0; i < n; i++) {
+            let cubic = document.createElement('div');
+            cubic.classList.add('cubic');
+            cubic.innerText = i + 1;
+            view.appendChild(cubic);
+        }
+        if (DEBUG) { console.log('插入完成'); }
+        input.setAttribute('placeholder', n);
+        input.value = '';
+        input.blur();
+        addFlipEvent();
+        window.localStorage.setItem('number', n);
+    }
+
+    // number button
+    numberBtn.addEventListener('click', () => {
+        numberView.classList.toggle('active');
+        if(numberView.classList.contains('active')){
+            input.focus();
+        } else {
+            if(input.value != '' && parseInt(input.value) != cubics.length){
+                if(DEBUG) {console.log('cubic number: ' + input.value);}
+                    alterCubicNumber(parseInt(input.value));
+            }
+        }
+        resetBtnStatus = false
+    })
+
+    // reset button
+    const resetBtn = document.getElementById('reset');
+    var resetBtnStatus = false;
+    resetBtn.addEventListener('click', () => {
+        if (!resetBtnStatus) {
+            for (let cubic of cubics) {
+                cubic.classList.remove('active');
+            }
+             resetBtnStatus = true;
+        } else {
+            for (let cubic of cubics) {
+                cubic.classList.add('active');
+            }
+             resetBtnStatus = false;
+        };
+    })
+
+    // random button
+    const randomBtn = document.getElementById('random');
+        randomBtn.addEventListener('click', () => {
+            for (let [i, cubic] of Object.entries(cubics)) {
+                let status = Math.random()<0.5 ? 0 : 1;
+                // console.log(status);
+                if(status === 0){
+                    cubic.classList.remove('active');
+                    cubicSet = cubicSet.filter((x) => x != i);
+                } else {
+                    cubic.classList.add('active');
+                    cubicSet.add(i);
+                }
+            }
+            window.localStorage.setItem('cubicSet', cubicSet);
+        })
+</script>
+</html>
