@@ -1,0 +1,721 @@
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/2.0.2/anime.min.js"></script>
+    <title>多行文字动画</title>
+</head>
+
+<body>
+    <!-- 默认动画显示区域 -->
+    <div class="main-animation">
+        <div class="text-container">
+            <h1 class="ml12 line1">Welcome to the</h1>
+            <h1 class="ml12 line2">Amazing world of</h1>
+            <h1 class="ml12 line3">Animation effects</h1>
+        </div>
+    </div>
+
+    <!-- 设置按钮 -->
+    <div class="settings-btn" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0'">
+        <button onclick="openModal()">⚙️ 设置</button>
+    </div>
+
+    <!-- 模态框 -->
+    <div id="settingsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>设置动画文字</h2>
+                <span class="close" onclick="closeModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="textarea-container">
+                    <textarea id="textInput"
+                        placeholder="请输入文字，每行一句话&#10;例如：&#10;Welcome to the&#10;Amazing world of&#10;Animation effects"></textarea>
+                </div>
+                <div class="preview-container" style="display: none;">
+                    <div class="preview-text-container"></div>
+                </div>
+                <div class="modal-footer">
+                    <button onclick="previewTexts()">预览</button>
+                    <button onclick="saveTexts()">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 在 body 标签内的最后添加提示框 -->
+    <div id="toast" class="toast">保存成功</div>
+</body>
+
+<style>
+    body {
+        margin: 0;
+        padding: 0;
+        height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background-color: #9BA5B5;
+    }
+
+    .main-animation {
+        position: relative;
+        height: 100vh;
+        width: 100vw;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .settings-btn {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        opacity: 0;
+        transition: opacity 0.3s;
+        z-index: 100;
+    }
+
+    .settings-btn button {
+        background-color: #fff;
+        color: #111;
+        border: none;
+        padding: 12px 18px 12px 16px;
+        cursor: pointer;
+        border-radius: 4px;
+        font-size: 16px;
+        transition: opacity 0.3s;
+    }
+
+    .settings-btn button:hover {
+        opacity: 0.8;
+    }
+
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+    }
+
+    .modal-content {
+        background-color: #fff;
+        margin: 5% auto;
+        padding: 0 20px 20px 20px;
+        width: 90%;
+        max-width: 800px;
+        border-radius: 8px;
+        position: relative;
+        max-height: 80vh;
+        overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: #ddd transparent;
+    }
+
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        position: sticky;
+        top: 0;
+        background: white;
+        z-index: 1001;
+        padding: 10px 0;
+    }
+
+    .close {
+        font-size: 24px;
+        cursor: pointer;
+        user-select: none;
+        -webkit-user-select: none;
+    }
+
+    .textarea-container {
+        margin: 10px 0;
+    }
+
+    textarea {
+        width: 100%;
+        min-height: 150px;
+        padding: 12px;
+        font-size: 16px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        resize: vertical;
+        box-sizing: border-box;
+        font-family: inherit;
+        line-height: 1.5;
+        background-color: white;
+        color: #333;
+    }
+
+    textarea:focus {
+        outline: none;
+        border-color: #9BA5B5;
+    }
+
+    .add-btn {
+        background-color: #9BA5B5;
+        color: white;
+        border: none;
+        margin: 10px 0;
+        padding: 8px 16px;
+    }
+
+    .modal-body {
+        position: relative;
+        padding: 10px 0;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    .preview-container {
+        margin: 20px 0;
+        height: 120px;
+        position: relative;
+        background-color: #9BA5B5;
+        border-radius: 4px;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .preview-text-container {
+        position: relative;
+        width: 100%;
+        height: 3em;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        overflow: visible;
+    }
+
+    .preview-text-container .ml12 {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        margin: 0;
+    }
+
+    .modal-footer {
+        margin-top: 20px;
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+        position: sticky;
+        bottom: 0;
+        background: #fff;
+        padding: 10px 0 0 0;
+        border-top: none;
+    }
+
+    .modal-footer button {
+        background-color: #9BA5B5;
+        color: white;
+        border: none;
+    }
+
+    /* 动画相关样式 */
+    .text-container,
+    .preview-text-container {
+        position: relative;
+        height: 3em;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        overflow: visible;
+    }
+
+    .ml12 {
+        font-weight: 200;
+        font-size: 4vw;
+        /* 初始字体大小 */
+        text-transform: uppercase;
+        letter-spacing: min(0.3em, 1vw);
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        white-space: nowrap;
+        user-select: none;
+        -webkit-user-select: none;
+        margin: 0;
+        color: white;
+        max-width: 90vw;
+    }
+
+    .ml12 .letter {
+        display: inline-block;
+        line-height: 1em;
+        opacity: 0;
+    }
+
+    /* 预览文字大小也要响应式 */
+    .preview-text-container .ml12 {
+        color: white;
+        font-size: min(1.2em, 4vw);
+        letter-spacing: min(0.5em, 2vw);
+    }
+
+    /* 添加 Toast 提示框样式 */
+    .toast {
+        position: fixed;
+        bottom: 20px;
+        right: -300px;
+        background-color: white;
+        color: #111;
+        padding: 12px 24px;
+        border-radius: 4px;
+        transition: right 0.3s ease-in-out;
+        z-index: 2000;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        border: 1px solid #eee;
+    }
+
+    .toast.show {
+        right: 20px;
+    }
+
+    /* Webkit 浏览器的滚动条样式 */
+    .modal-content::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+    }
+
+    .modal-content::-webkit-scrollbar-track {
+        background: transparent;
+        border-radius: 3px;
+    }
+
+    .modal-content::-webkit-scrollbar-thumb {
+        background-color: #c8c6c4;
+        border-radius: 3px;
+    }
+
+    .modal-content::-webkit-scrollbar-corner {
+        background: transparent;
+    }
+
+    /* 按钮统一添加不可选中属性 */
+    button {
+        user-select: none;
+        -webkit-user-select: none;
+        cursor: pointer;
+        background-color: #9BA5B5;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px;
+        transition: opacity 0.3s;
+    }
+
+    button:hover {
+        opacity: 0.8;
+    }
+
+    /* 确保模态框标题也不可选中 */
+    .modal-header h2 {
+        user-select: none;
+        -webkit-user-select: none;
+    }
+
+    /* 移除删除按钮的边框 */
+    .remove-btn {
+        background-color: #9BA5B5;
+        color: white;
+        border: none;
+    }
+
+    /* 修改移动端样式 */
+    @media screen and (max-width: 768px) {
+        .settings-btn {
+            opacity: 1;
+            transition: opacity 0.3s, pointer-events 0.3s;
+            /* 添加过渡效果 */
+        }
+
+        /* 当模态框打开时隐藏设置按钮 */
+        .modal[style*="display: block"]~.settings-btn {
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s, pointer-events 0s;
+            /* 立即禁用点击 */
+        }
+
+        /* 调整移动端文字大小 */
+        .ml12 {
+            font-size: 3.5vw;
+            /* 移动端初始字体大小 */
+        }
+
+        /* 修改模态框样式 */
+        .modal-content {
+            margin: 15px;
+            /* 添加外边距 */
+            width: calc(100% - 30px);
+            /* 考虑边距调整宽度 */
+            border-radius: 8px;
+            /* 恢复圆角 */
+            padding: 0 15px 5px 15px;
+            box-sizing: border-box;
+        }
+
+        /* 修改模态框头部样式 */
+        .modal-header {
+            padding-top: 15px;
+        }
+
+        /* 修改内容区域样式 */
+        .modal-body {
+            padding: 10px 0;
+            max-height: calc(100vh - 150px);
+            /* 限制最大高度 */
+            overflow-y: auto;
+        }
+
+        /* 修改底部按钮区域样式 */
+        .modal-footer {
+            padding: 15px 0;
+            margin-top: 10px;
+        }
+
+        textarea {
+            font-size: 14px;
+            padding: 10px;
+            min-height: 120px;
+        }
+    }
+
+    /* 超小屏幕适配 */
+    @media screen and (max-width: 320px) {
+        .ml12 {
+            font-size: min(1.5em, 4.5vw);
+            letter-spacing: min(0.3em, 2vw);
+        }
+
+        .settings-btn button {
+            padding: 6px 10px;
+            font-size: 12px;
+        }
+
+        .modal-content {
+            margin: 10px;
+            /* 稍微减小边距 */
+            width: calc(100% - 20px);
+            height: calc(100vh - 20px);
+            padding: 0 12px 15px 12px;
+        }
+
+        .modal-header {
+            padding: 12px 0;
+        }
+
+        textarea {
+            font-size: 13px;
+            padding: 8px;
+            min-height: 100px;
+        }
+
+        .modal-footer {
+            padding: 12px 0 15px 0;
+        }
+
+        button {
+            padding: 4px 8px;
+            font-size: 12px;
+        }
+    }
+
+    /* 桌面端悬停显示 */
+    @media (hover: hover) {
+        .settings-btn:hover {
+            opacity: 1;
+        }
+    }
+</style>
+
+<script>
+    let currentAnimation = null;
+
+    function initializeAnimation(container) {
+        // 停止当前动画
+        if (currentAnimation) {
+            currentAnimation.pause();
+            currentAnimation = null;
+        }
+
+        // 包装字母
+        container.querySelectorAll('.ml12').forEach(textWrapper => {
+            textWrapper.innerHTML = textWrapper.textContent.replace(/\S/g, "<span class='letter'>$&</span>");
+        });
+
+        const lines = Array.from(container.querySelectorAll('.ml12'));
+        let currentLineIndex = 0;
+
+        function animateLine(lineIndex) {
+            // 隐藏所有行
+            lines.forEach(line => {
+                line.style.visibility = 'hidden';
+            });
+
+            const currentLine = lines[lineIndex];
+            if (!currentLine) return;
+
+            // 显示当前行
+            currentLine.style.visibility = 'visible';
+
+            const timeline = anime.timeline();
+
+            timeline
+                .add({
+                    targets: currentLine.querySelectorAll('.letter'),
+                    translateX: [40, 0],
+                    opacity: [0, 1],
+                    easing: "easeOutExpo",
+                    duration: 1200,
+                    delay: (el, i) => 500 + 30 * i
+                })
+                .add({
+                    targets: currentLine.querySelectorAll('.letter'),
+                    translateX: [0, -30],
+                    opacity: [1, 0],
+                    easing: "easeInExpo",
+                    duration: 1100,
+                    delay: (el, i) => 100 + 30 * i,
+                    complete: () => {
+                        currentLine.style.visibility = 'hidden';
+                        currentLineIndex = (currentLineIndex + 1) % lines.length;
+                        animateLine(currentLineIndex);
+                    }
+                });
+
+            currentAnimation = timeline;
+        }
+
+        // 开始第一行动画
+        animateLine(0);
+    }
+
+    // 修改自动调整文字大小的函数
+    function adjustTextSize() {
+        const container = document.querySelector('.text-container');
+        const lines = container.querySelectorAll('.ml12');
+        const containerWidth = window.innerWidth * 0.9; // 改为使用窗口宽度的90%
+
+        // 找出最长的文本
+        let longestLine = null;
+        let maxWidth = 0;
+
+        // 临时创建一个测量元素
+        const measureElement = document.createElement('div');
+        measureElement.style.cssText = `
+            position: absolute;
+            visibility: hidden;
+            white-space: nowrap;
+            font-weight: 200;
+            text-transform: uppercase;
+            letter-spacing: min(0.3em, 1vw);
+        `;
+        document.body.appendChild(measureElement);
+
+        lines.forEach(line => {
+            measureElement.textContent = line.textContent;
+            const width = measureElement.offsetWidth;
+            if (width > maxWidth) {
+                maxWidth = width;
+                longestLine = line;
+            }
+        });
+
+        document.body.removeChild(measureElement);
+
+        if (longestLine) {
+            // 计算需要的字体大小
+            const scale = containerWidth / maxWidth;
+            const baseFontSize = parseFloat(window.getComputedStyle(longestLine).fontSize);
+            const newFontSize = Math.min(baseFontSize * scale, window.innerWidth * 0.05); // 限制最大字体大小
+
+            // 应用新的字体大小到所有行
+            lines.forEach(line => {
+                line.style.fontSize = `${newFontSize}px`;
+            });
+        }
+    }
+
+    // 在初始化动画和窗口调整时调用
+    window.addEventListener('resize', adjustTextSize);
+    document.addEventListener('DOMContentLoaded', () => {
+        const savedTexts = JSON.parse(localStorage.getItem('animationTexts') || '[]');
+        const mainContainer = document.querySelector('.text-container');
+
+        const textsToShow = savedTexts.length > 0 ? savedTexts : [
+            'Welcome to the',
+            'Amazing world of',
+            'Animation effects'
+        ];
+
+        mainContainer.innerHTML = '';
+        textsToShow.forEach((text, index) => {
+            const h1 = document.createElement('h1');
+            h1.className = `ml12 line${index + 1}`;
+            h1.textContent = text;
+            mainContainer.appendChild(h1);
+        });
+
+        // 确保DOM更新后再初始化动画
+        requestAnimationFrame(() => {
+            initializeAnimation(mainContainer);
+        });
+
+        // 添加文字大小调整
+        setTimeout(adjustTextSize, 100);
+    });
+
+    function showToast(message, duration = 2500) {
+        const toast = document.getElementById('toast');
+        toast.textContent = message;
+        toast.classList.add('show');
+
+        setTimeout(() => {
+            toast.classList.remove('show');
+        }, duration);
+    }
+
+    function openModal() {
+        document.getElementById('settingsModal').style.display = 'block';
+        document.querySelector('.preview-container').style.display = 'none';
+
+        // 停止主页动画
+        if (currentAnimation) {
+            currentAnimation.pause();
+            currentAnimation = null;
+        }
+
+        // 隐藏所有主页文字
+        document.querySelectorAll('.main-animation .ml12').forEach(line => {
+            line.style.opacity = '0';
+        });
+    }
+
+    function closeModal() {
+        // 先隐藏模态框
+        document.getElementById('settingsModal').style.display = 'none';
+        document.querySelector('.preview-container').style.display = 'none';
+
+        // 确保设置按钮显示（移动端）
+        const settingsBtn = document.querySelector('.settings-btn');
+        settingsBtn.style.opacity = '1';
+        settingsBtn.style.pointerEvents = 'auto';
+
+        // 停止所有正在运行的动画
+        if (currentAnimation) {
+            currentAnimation.pause();
+            currentAnimation = null;
+        }
+
+        // 获取主容器
+        const mainContainer = document.querySelector('.text-container');
+
+        // 重置所有文字状态
+        mainContainer.querySelectorAll('.ml12').forEach(line => {
+            // 重置可见性
+            line.style.visibility = 'visible';
+            line.style.opacity = '1';
+            // 重新包装字母
+            line.innerHTML = line.textContent.replace(/\S/g, "<span class='letter'>$&</span>");
+        });
+
+        // 使用短延迟确保DOM更新完成
+        setTimeout(() => {
+            // 重新初始化动画
+            const lines = Array.from(mainContainer.querySelectorAll('.ml12'));
+            if (lines.length > 0) {  // 确保有文字需要动画
+                initializeAnimation(mainContainer);
+            }
+        }, 100);
+    }
+
+    function saveTexts() {
+        const textarea = document.getElementById('textInput');
+        const texts = textarea.value.split('\n').filter(text => text.trim() !== '');
+
+        if (texts.length === 0) {
+            showToast('❗ 请至少输入一行文字！');
+            return;
+        }
+
+        localStorage.setItem('animationTexts', JSON.stringify(texts));
+
+        // 停止当前动画
+        if (currentAnimation) {
+            currentAnimation.pause();
+            currentAnimation = null;
+        }
+
+        // 更新主动画
+        const mainContainer = document.querySelector('.text-container');
+        mainContainer.innerHTML = '';
+        texts.forEach((text, index) => {
+            const h1 = document.createElement('h1');
+            h1.className = `ml12 line${index + 1}`;
+            h1.textContent = text;
+            mainContainer.appendChild(h1);
+        });
+
+        // 关闭模态框
+        document.getElementById('settingsModal').style.display = 'none';
+        document.querySelector('.preview-container').style.display = 'none';
+
+        // 清空输入框
+        textarea.value = '';
+
+        showToast('✔ 保存成功！');
+
+        // 重新初始化动画
+        setTimeout(() => {
+            initializeAnimation(mainContainer);
+            adjustTextSize();
+        }, 100);
+    }
+
+    function previewTexts() {
+        const textarea = document.getElementById('textInput');
+        const texts = textarea.value.split('\n').filter(text => text.trim() !== '');
+
+        if (texts.length === 0) {
+            showToast('❗ 请至少输入一行文字！');
+            return;
+        }
+
+        const previewContainer = document.querySelector('.preview-container');
+        const textContainer = previewContainer.querySelector('.preview-text-container');
+        previewContainer.style.display = 'flex';
+        textContainer.innerHTML = '';
+
+        setTimeout(() => {
+            previewContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }, 100);
+
+        texts.forEach((text, index) => {
+            const h1 = document.createElement('h1');
+            h1.className = `ml12 preview-line${index + 1}`;
+            h1.textContent = text;
+            textContainer.appendChild(h1);
+        });
+
+        initializeAnimation(textContainer);
+    }
+</script>
+
+</html>
