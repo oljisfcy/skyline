@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/2.0.2/anime.min.js"></script>
+    <title>文字动画</title>
+</head>
+
+<body>
+    <div class="main-animation">
+        <div class="text-container">
+            <!-- 文字内容将通过 JavaScript 动态添加 -->
+        </div>
+    </div>
+</body>
+
+<style>
+    body {
+        margin: 0;
+        padding: 0;
+        height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        overflow: hidden;
+        /* 背景色将通过 JavaScript 设置 */
+    }
+
+    .main-animation {
+        position: relative;
+        height: 100vh;
+        width: 100vw;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        overflow: hidden;
+        /* 防止出现滚动条 */
+    }
+
+    .text-container {
+        position: relative;
+        height: 100%;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        overflow: visible;
+        padding: 20px;
+        /* 添加内边距 */
+        box-sizing: border-box;
+    }
+
+    .ml12 {
+        font-weight: 200;
+        font-size: 4vw;
+        text-transform: uppercase;
+        letter-spacing: min(0.3em, 1vw);
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        white-space: nowrap;
+        user-select: none;
+        -webkit-user-select: none;
+        margin: 0;
+        /* 文字颜色将通过 JavaScript 设置 */
+        max-width: 90vw;
+        overflow: visible;
+    }
+
+    .ml12 .letter {
+        display: inline-block;
+        line-height: 1em;
+        opacity: 0;
+        transform: translateX(40px);
+    }
+
+    @media screen and (max-width: 768px) {
+        .ml12 {
+            font-size: 3.5vw;
+        }
+    }
+</style>
+
+<script>
+    async function loadConfig() {
+        try {
+            const response = await fetch('textAnimation.json');
+            if (!response.ok) throw new Error('Config file not found');
+            const config = await response.json();
+            return {
+                texts: config.texts || [
+                    'Welcome to the',
+                    'Amazing world of',
+                    'Animation effects'
+                ],
+                backgroundColor: config.backgroundColor || '#508ABB',
+                textColor: config.textColor || '#FFFFFF'
+            };
+        } catch (error) {
+            console.log('Using default config');
+            return {
+                texts: [
+                    'Welcome to the',
+                    'Amazing world of',
+                    'Animation effects'
+                ],
+                backgroundColor: '#508ABB',
+                textColor: '#FFFFFF'
+            };
+        }
+    }
+
+    function adjustTextSize() {
+        const container = document.querySelector('.text-container');
+        const lines = container.querySelectorAll('.ml12');
+        const containerWidth = window.innerWidth * 0.95;
+        const containerHeight = window.innerHeight * 0.95;
+
+        // 找出最长的文本
+        let longestLine = null;
+        let maxWidth = 0;
+
+        const measureElement = document.createElement('div');
+        measureElement.style.cssText = `
+            position: absolute;
+            visibility: hidden;
+            white-space: nowrap;
+            font-weight: 200;
+            text-transform: uppercase;
+            letter-spacing: min(0.3em, 1vw);
+            font-size: 16px; // 基准字体大小
+        `;
+        document.body.appendChild(measureElement);
+
+        // 计算最长的文本
+        lines.forEach(line => {
+            measureElement.textContent = line.textContent;
+            const width = measureElement.offsetWidth;
+            if (width > maxWidth) {
+                maxWidth = width;
+                longestLine = line;
+            }
+        });
+
+        // 计算合适的字体大小
+        if (longestLine) {
+            // 计算水平和垂直方向需要的缩放比例
+            const horizontalScale = containerWidth / (maxWidth * 1.1);
+            const verticalScale = containerHeight / (lines.length * 80);
+
+            // 使用较小的缩放比例确保两个方向都适配
+            const scale = Math.min(horizontalScale, verticalScale);
+
+            // 计算最终字体大小，增加最大值限制
+            const newFontSize = Math.min(16 * scale, window.innerWidth * 0.3);
+
+            // 应用新的字体大小
+            lines.forEach(line => {
+                line.style.fontSize = `${newFontSize}px`;
+            });
+        }
+
+        document.body.removeChild(measureElement);
+    }
+
+    function initializeAnimation(lines) {
+        let currentLineIndex = 0;
+
+        function animateLine(lineClass) {
+            anime.timeline()
+                .add({
+                    targets: `${lineClass} .letter`,
+                    translateX: [40, 0],
+                    translateZ: 0,
+                    opacity: [0, 1],
+                    easing: "easeOutExpo",
+                    duration: 1200,
+                    delay: (el, i) => 500 + 30 * i
+                })
+                .add({
+                    targets: `${lineClass} .letter`,
+                    translateX: [0, -30],
+                    opacity: [1, 0],
+                    easing: "easeInExpo",
+                    duration: 1100,
+                    delay: (el, i) => 100 + 30 * i,
+                    complete: () => {
+                        currentLineIndex = (currentLineIndex + 1) % lines.length;
+                        setTimeout(() => {
+                            animateLine(`.line${currentLineIndex + 1}`);
+                        }, 100);
+                    }
+                });
+        }
+
+        // 开始第一行动画
+        setTimeout(() => {
+            animateLine('.line1');
+        }, 500);
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        const config = await loadConfig();
+
+        // 应用背景色和文字颜色
+        document.body.style.backgroundColor = config.backgroundColor;
+        document.querySelectorAll('.ml12').forEach(element => {
+            element.style.color = config.textColor;
+        });
+
+        const container = document.querySelector('.text-container');
+
+        // 创建文字元素
+        container.innerHTML = '';
+        config.texts.forEach((text, index) => {
+            const h1 = document.createElement('h1');
+            h1.className = `ml12 line${index + 1}`;
+            h1.textContent = text;
+            h1.style.color = config.textColor;
+            container.appendChild(h1);
+        });
+
+        // 包装字母
+        document.querySelectorAll('.ml12').forEach(textWrapper => {
+            textWrapper.innerHTML = textWrapper.textContent.replace(/\S/g, "<span class='letter'>$&</span>");
+        });
+
+        // 监听窗口大小变化
+        window.addEventListener('resize', adjustTextSize);
+        setTimeout(adjustTextSize, 100);
+
+        // 初始化动画
+        initializeAnimation(config.texts);
+    });
+</script>
+
+</html>
