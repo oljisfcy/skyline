@@ -150,7 +150,7 @@
         if (longestLine) {
             // 计算水平和垂直方向需要的缩放比例
             const horizontalScale = containerWidth / (maxWidth * 1.1);
-            const verticalScale = containerHeight / (lines.length * 80);
+            const verticalScale = containerHeight / 30;
 
             // 使用较小的缩放比例确保两个方向都适配
             const scale = Math.min(horizontalScale, verticalScale);
