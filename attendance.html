@@ -10,9 +10,8 @@
     <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
-    <script src="https://cdn.jsdelivr.net/npm/tiny-pinyin@1.3.2/dist/tiny-pinyin.js"></script>
-    
-    <style>
+    <script src="https://unpkg.com/pinyin-pro@3.18.2/dist/index.js"></script>    
+<style>
         /* 基础布局 */
         html, body {
             height: 100%; height: 100dvh; overflow: hidden;
@@ -249,13 +248,24 @@
         function saveData() { localStorage.setItem('class_attendance_plus', JSON.stringify(appData)); }
 
         function getAbbr(name) {
-            if (typeof Pinyin === 'undefined') return ""; 
+            var { pinyin } = pinyinPro;
+            if (typeof pinyin === 'undefined') return ""; 
             try {
-                const pinyinArr = Pinyin.getPinyin(name);
+                // 1. 获取拼音字符串 (例如 "ZHU JIN HUA")
+                const pinyinStr = pinyin(name);
+                // 2. 按空格分割成数组 (["ZHU", "JIN", "HUA"])
+                const pinyinArr = pinyinStr.split(' ');
+                
                 let abbr = "";
-                pinyinArr.forEach(p => { if (p && p.length > 0) abbr += p[0]; });
-                return abbr.toLowerCase();
-            } catch(e) { console.error(e); return ""; }
+                pinyinArr.forEach(p => { 
+                    // 3. 取每个拼音的第一个字母
+                    if (p && p.length > 0) abbr += p[0]; 
+                });
+                return abbr.toLowerCase(); // 返回 "zjh"
+            } catch(e) { 
+                console.error(e); 
+                return ""; 
+            }
         }
 
         // --- 核心：双重动画逻辑 ---
@@ -318,7 +328,7 @@
                     const card = document.getElementById(`card-${sid}`);
                     if (card) card.classList.add('pop-in');
                 }, 50);
-                showToast(actionType === 'check-in' ? "已恢复：已到" : "已撤回：未到");
+                showToast("已撤回");
             }
         }
 
@@ -367,6 +377,7 @@
             if(total === 0){ noData.classList.remove('hidden'); empty.classList.add('hidden'); return; }
             noData.classList.add('hidden');
             
+            // 确保每个学生都有首字母缩写
             if (typeof Pinyin !== 'undefined') {
                 appData.students.forEach(s => { if (!s.abbr) s.abbr = getAbbr(s.name); });
             }
@@ -374,7 +385,13 @@
             let list = appData.students.filter(s => {
                 const isPresent = appData.records[currentCycle] && appData.records[currentCycle].includes(s.sid);
                 const abbr = s.abbr || "";
-                const matches = s.name.toLowerCase().includes(search) || s.sid.toLowerCase().includes(search) || abbr.includes(search);
+                
+                // --- 核心搜索逻辑 ---
+                const matches = 
+                    s.name.includes(search) ||             // 1. 搜中文：祝、金、华
+                    s.sid.includes(search) ||              // 2. 搜学号
+                    abbr.includes(search);                 // 3. 搜首字母：z, zj, zjh
+
                 return viewMode === 'remaining' ? (!isPresent && matches) : (isPresent && matches);
             });
             
