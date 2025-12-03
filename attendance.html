@@ -1,169 +1,131 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport"
-        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>智能班级点名</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>班级点名</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
+    
     <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
     <script src="https://cdn.jsdelivr.net/npm/tiny-pinyin@1.3.2/dist/tiny-pinyin.js"></script>
-
+    
     <style>
-        /* 核心布局修复 */
-        html,
-        body {
-            height: 100%;
-            height: 100dvh;
-            overflow: hidden;
-            background-color: #f3f4f6;
-            touch-action: pan-y;
-            -webkit-user-select: none;
-            user-select: none;
+        /* 基础布局 */
+        html, body {
+            height: 100%; height: 100dvh; overflow: hidden;
+            background-color: #f3f4f6; touch-action: pan-y; -webkit-user-select: none; user-select: none;
         }
-
         .pb-safe {
             padding-bottom: 12px;
             padding-bottom: calc(12px + constant(safe-area-inset-bottom));
             padding-bottom: calc(12px + env(safe-area-inset-bottom));
         }
-
-        /* 动画 */
-        .card-anim {
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .card-anim:active {
-            transform: scale(0.95);
-        }
-
-        @keyframes popIn {
-            0% {
-                opacity: 0;
-                transform: scale(0.5);
-            }
-
-            100% {
-                opacity: 1;
-                transform: scale(1);
-            }
-        }
-
-        .pop-in {
-            animation: popIn 0.4s ease-out forwards;
-        }
-
-        .hide-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
-
-        .hide-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
-
-        .tab-active {
-            color: #2563eb;
-            border-bottom: 2px solid #2563eb;
-        }
-
-        .tab-inactive {
-            color: #6b7280;
-        }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .tab-active { color: #2563eb; border-bottom: 2px solid #2563eb; }
+        .tab-inactive { color: #6b7280; }
 
         #toast {
-            visibility: hidden;
-            min-width: 120px;
-            background-color: rgba(0, 0, 0, 0.7);
-            color: #fff;
-            text-align: center;
-            border-radius: 20px;
-            padding: 10px 20px;
-            position: fixed;
-            z-index: 60;
-            left: 50%;
-            bottom: 120px;
-            transform: translateX(-50%);
-            font-size: 14px;
-            opacity: 0;
-            transition: opacity 0.3s;
+            visibility: hidden; min-width: 120px; background-color: rgba(0,0,0,0.8); color: #fff;
+            text-align: center; border-radius: 20px; padding: 12px 24px; position: fixed;
+            z-index: 60; left: 50%; bottom: 120px; transform: translateX(-50%);
+            font-size: 15px; opacity: 0; transition: opacity 0.3s;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        #toast.show { visibility: visible; opacity: 1; }
+
+        /* --- 核心动画区域 --- */
+
+        /* 1. 点名消失动画 (白 -> 绿 -> 缩小消失) */
+        .anim-check-in {
+            animation: checkInExit 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+            pointer-events: none;
+            z-index: 10; /* 保证动画时在最上层 */
+        }
+        @keyframes checkInExit {
+            0% { transform: scale(1); background-color: white; border-color: #bfdbfe; opacity: 1; }
+            50% { background-color: #dcfce7; border-color: #86efac; transform: scale(0.95); opacity: 0.9; }
+            100% { transform: scale(0); opacity: 0; margin: 0; padding: 0; }
         }
 
-        #toast.show {
-            visibility: visible;
-            opacity: 1;
+        /* 2. 撤回消失动画 (绿 -> 白 -> 缩小消失) */
+        .anim-undo {
+            animation: undoExit 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+            pointer-events: none;
+            z-index: 10;
+        }
+        @keyframes undoExit {
+            0% { transform: scale(1); background-color: #f0fdf4; border-color: #bbf7d0; opacity: 1; }
+            50% { background-color: #ffffff; border-color: #e5e7eb; transform: scale(0.95); opacity: 0.9; }
+            100% { transform: scale(0); opacity: 0; }
         }
 
-        /* 图表动画 */
-        .chart-container {
-            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        /* 3. 列表重排动画 (View Transitions API) */
+        ::view-transition-group(root) {
+            animation-duration: 0.4s;
+        }
+        /* 卡片通用样式，启用硬件加速 */
+        .student-card {
+            contain: layout paint;
         }
 
-        .bounce-right {
-            transform: translateX(30px);
-        }
-
-        .bounce-left {
-            transform: translateX(-30px);
-        }
+        /* 4. 恢复/出现动画 */
+        @keyframes popIn { 0% { opacity: 0; transform: scale(0.5); } 100% { opacity: 1; transform: scale(1); } }
+        .pop-in { animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
 
         /* 下拉菜单 */
-        .custom-dropdown-options {
-            animation: fadeIn 0.2s ease-out;
-            transform-origin: top center;
+        .custom-dropdown-options { animation: fadeIn 0.2s ease-out; transform-origin: top center; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
+    
+        /* --- 修复：防止动画遮挡导航栏 --- */
+        
+        /* 1. 将头部和底部定义为独立的过渡区域，不随内容区一起截图 */
+        header { 
+            view-transition-name: page-header; 
+        }
+        nav { 
+            view-transition-name: page-nav; 
         }
 
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(-10px) scale(0.95);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0) scale(1);
-            }
+        /* 2. 强制提升这两个独立区域在动画发生时的层级 (z-index) */
+        ::view-transition-group(page-header),
+        ::view-transition-group(page-nav) {
+            z-index: 100; /* 确保比卡片动画层级高 */
         }
     </style>
 </head>
-
 <body class="flex flex-col w-full" onclick="closeDropdownGlobal(event)">
 
     <header class="bg-white shadow-sm z-10 p-4 flex justify-between items-center shrink-0">
         <div class="flex flex-col">
             <div class="flex items-center gap-2">
-                <h1 class="text-xl font-bold text-gray-800">点名助手</h1>
-                <span id="absent-badge"
-                    class="hidden bg-red-100 text-red-600 text-xs font-bold px-2 py-0.5 rounded-full">
+                <h1 class="text-xl font-bold text-gray-800">班级点名</h1>
+                <span id="absent-badge" class="hidden bg-red-100 text-red-600 text-xs font-bold px-2 py-0.5 rounded-full">
                     未到 <span id="absent-count">0</span>
                 </span>
             </div>
             <p class="text-xs text-gray-500 mt-0.5" id="current-cycle-display">加载中...</p>
         </div>
         <div class="flex gap-2">
-            <button onclick="requestShakePermission()" id="shake-btn"
-                class="hidden bg-yellow-100 text-yellow-700 px-2 py-1 rounded text-xs font-medium">
+            <button onclick="requestShakePermission()" id="shake-btn" class="hidden bg-yellow-100 text-yellow-700 px-2 py-1 rounded text-xs font-medium">
                 <i class="fas fa-mobile-alt"></i> 开启摇一摇
             </button>
-            <button onclick="toggleViewMode()" id="view-mode-btn"
-                class="bg-gray-100 text-gray-600 px-3 py-1 rounded text-sm font-medium">
+             <button onclick="toggleViewMode()" id="view-mode-btn" class="bg-gray-100 text-gray-600 px-3 py-1 rounded text-sm font-medium">
                 <i class="fas fa-eye"></i> 显示未到
             </button>
         </div>
     </header>
 
     <main class="flex-1 overflow-y-auto hide-scrollbar p-4 relative w-full" id="main-container">
-
+        
         <div id="page-home" class="space-y-4">
             <div class="flex gap-2 mb-4">
                 <div class="relative flex-1">
                     <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
-                    <input type="text" id="search-input" placeholder="搜姓名、学号或首字母(如zs)..."
+                    <input type="text" id="search-input" placeholder="搜姓名、学号或拼音(如z/zs)..." 
                         class="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500">
                 </div>
                 <button onclick="toggleSort()" class="bg-white border border-gray-200 px-3 rounded-lg text-gray-600">
@@ -172,12 +134,12 @@
             </div>
 
             <div id="student-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 pb-24"></div>
-
+            
             <div id="empty-state" class="hidden text-center mt-20 text-gray-400">
                 <i class="fas fa-check-circle text-4xl text-green-500 mb-2"></i>
                 <p>全员已到！</p>
             </div>
-            <div id="no-data-state" class="hidden text-center mt-20 text-gray-400">
+             <div id="no-data-state" class="hidden text-center mt-20 text-gray-400">
                 <i class="fas fa-folder-open text-4xl mb-2"></i>
                 <p>无数据，请去“设置”导入</p>
             </div>
@@ -189,31 +151,22 @@
                     <div class="flex items-center gap-3">
                         <h2 class="font-bold text-gray-700">出勤趋势</h2>
                         <div class="relative z-50">
-                            <button id="dropdown-trigger" onclick="toggleDropdown(event)"
-                                class="flex items-center gap-2 bg-gray-100 text-blue-600 px-3 py-1 rounded-lg text-xs font-bold focus:outline-none hover:bg-gray-200 transition-colors">
+                            <button id="dropdown-trigger" onclick="toggleDropdown(event)" class="flex items-center gap-2 bg-gray-100 text-blue-600 px-3 py-1 rounded-lg text-xs font-bold focus:outline-none hover:bg-gray-200 transition-colors">
                                 <span id="dropdown-label">按周统计</span>
                                 <i class="fas fa-chevron-down text-[10px]"></i>
                             </button>
-                            <div id="dropdown-options"
-                                class="custom-dropdown-options hidden absolute top-full left-0 mt-2 w-28 bg-white shadow-xl rounded-xl overflow-hidden border border-gray-100">
+                            <div id="dropdown-options" class="custom-dropdown-options hidden absolute top-full left-0 mt-2 w-28 bg-white shadow-xl rounded-xl overflow-hidden border border-gray-100">
                                 <ul class="text-sm text-gray-600 divide-y divide-gray-50">
-                                    <li onclick="selectChartType('week', '按周统计')"
-                                        class="px-4 py-2 hover:bg-blue-50 hover:text-blue-600 cursor-pointer">按周统计</li>
-                                    <li onclick="selectChartType('month', '按月统计')"
-                                        class="px-4 py-2 hover:bg-blue-50 hover:text-blue-600 cursor-pointer">按月统计</li>
-                                    <li onclick="selectChartType('year', '按年统计')"
-                                        class="px-4 py-2 hover:bg-blue-50 hover:text-blue-600 cursor-pointer">按年统计</li>
+                                    <li onclick="selectChartType('week', '按周统计')" class="px-4 py-2 hover:bg-blue-50 hover:text-blue-600 cursor-pointer">按周统计</li>
+                                    <li onclick="selectChartType('month', '按月统计')" class="px-4 py-2 hover:bg-blue-50 hover:text-blue-600 cursor-pointer">按月统计</li>
+                                    <li onclick="selectChartType('year', '按年统计')" class="px-4 py-2 hover:bg-blue-50 hover:text-blue-600 cursor-pointer">按年统计</li>
                                 </ul>
                             </div>
                         </div>
                     </div>
                     <div class="flex gap-2">
-                        <button onclick="shiftChart(1)"
-                            class="bg-gray-100 w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-200 text-gray-600"><i
-                                class="fas fa-chevron-left text-xs"></i></button>
-                        <button onclick="shiftChart(-1)"
-                            class="bg-gray-100 w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-200 text-gray-600"><i
-                                class="fas fa-chevron-right text-xs"></i></button>
+                        <button onclick="shiftChart(1)" class="bg-gray-100 w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-200 text-gray-600"><i class="fas fa-chevron-left text-xs"></i></button>
+                        <button onclick="shiftChart(-1)" class="bg-gray-100 w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-200 text-gray-600"><i class="fas fa-chevron-right text-xs"></i></button>
                     </div>
                 </div>
                 <div id="chart-wrapper" class="chart-container relative z-10" style="min-height: 250px;">
@@ -222,12 +175,10 @@
             </div>
 
             <div class="bg-white p-4 rounded-xl shadow-sm space-y-3">
-                <button onclick="exportToExcel('current')"
-                    class="w-full bg-green-50 text-green-700 border border-green-200 py-3 rounded-lg font-bold shadow-sm hover:bg-green-100 flex justify-center items-center gap-2 active:scale-95 transition-transform">
+                <button onclick="exportToExcel('current')" class="w-full bg-green-50 text-green-700 border border-green-200 py-3 rounded-lg font-bold shadow-sm hover:bg-green-100 flex justify-center items-center gap-2 active:scale-95 transition-transform">
                     <i class="fas fa-file-excel"></i> 导出本周数据
                 </button>
-                <button onclick="exportToExcel('all')"
-                    class="w-full bg-green-600 text-white py-3 rounded-lg font-bold shadow hover:bg-green-700 flex justify-center items-center gap-2 active:scale-95 transition-transform">
+                <button onclick="exportToExcel('all')" class="w-full bg-green-600 text-white py-3 rounded-lg font-bold shadow hover:bg-green-700 flex justify-center items-center gap-2 active:scale-95 transition-transform">
                     <i class="fas fa-database"></i> 导出全部历史数据
                 </button>
             </div>
@@ -236,8 +187,7 @@
         <div id="page-settings" class="hidden space-y-4 pb-20">
             <div class="bg-white p-4 rounded-xl shadow-sm">
                 <h2 class="font-bold text-gray-700 mb-2">批量导入</h2>
-                <textarea id="import-area" class="w-full h-32 p-2 border border-gray-200 rounded-lg text-sm"
-                    placeholder="张三 1001&#10;李四 1002"></textarea>
+                <textarea id="import-area" class="w-full h-32 p-2 border border-gray-200 rounded-lg text-sm" placeholder="张三 1001&#10;李四 1002"></textarea>
                 <div class="flex gap-2 mt-2">
                     <button onclick="importData()" class="flex-1 bg-blue-600 text-white py-2 rounded-lg">导入</button>
                     <button onclick="clearAllData()" class="flex-1 bg-red-100 text-red-600 py-2 rounded-lg">清空</button>
@@ -246,7 +196,7 @@
         </div>
     </main>
 
-    <nav class="bg-white border-t border-gray-200 flex justify-around py-3 pb-safe z-30 shrink-0">
+    <nav class="bg-white border-t border-gray-200 flex justify-around py-3 pb-safe fixed bottom-0 left-0 right-0 z-50 shrink-0">
         <button onclick="switchTab('home')" id="tab-home" class="tab-active w-1/3 flex flex-col items-center">
             <i class="fas fa-user-check text-xl mb-1"></i><span class="text-xs">点名</span>
         </button>
@@ -267,17 +217,17 @@
         let currentCycle = "";
         let isSortAsc = true;
         let viewMode = 'remaining';
-
+        
         let chartInstance = null;
-        let chartType = 'week';
-        let chartOffset = 0;
-        const CHART_WINDOW_SIZE = 5;
+        let chartType = 'week'; 
+        let chartOffset = 0; 
+        const CHART_WINDOW_SIZE = 4;
 
-        let lastAction = null;
+        let lastAction = null; 
         let lastShakeTime = 0;
         let touchStartX = 0;
 
-        window.onload = function () {
+        window.onload = function() {
             loadData();
             calculateCycle();
             renderApp();
@@ -294,104 +244,118 @@
             if (saved) {
                 appData = JSON.parse(saved);
                 if (!appData.timestamps) appData.timestamps = {};
-                // 数据迁移：为旧数据生成拼音缩写
-                let needSave = false;
-                appData.students.forEach(s => {
-                    if (!s.abbr) {
-                        s.abbr = generateAbbr(s.name);
-                        needSave = true;
-                    }
-                });
-                if (needSave) saveData();
             }
         }
         function saveData() { localStorage.setItem('class_attendance_plus', JSON.stringify(appData)); }
 
-        // --- 拼音辅助函数 (Feature 1) ---
-        function generateAbbr(name) {
-            // 如果拼音库加载成功
-            if (typeof Pinyin !== 'undefined' && Pinyin.isSupported()) {
-                // tiny-pinyin getPinyin 返回数组 ["ZHANG", "SAN"]
-                // 我们取首字母并转小写 -> "zs"
-                try {
-                    const pinyinArray = Pinyin.getPinyin(name).map(p => p.charAt(0).toLowerCase());
-                    return pinyinArray.join('');
-                } catch (e) {
-                    return ""; // 失败则忽略
+        function getAbbr(name) {
+            if (typeof Pinyin === 'undefined') return ""; 
+            try {
+                const pinyinArr = Pinyin.getPinyin(name);
+                let abbr = "";
+                pinyinArr.forEach(p => { if (p && p.length > 0) abbr += p[0]; });
+                return abbr.toLowerCase();
+            } catch(e) { console.error(e); return ""; }
+        }
+
+        // --- 核心：双重动画逻辑 ---
+        function toggleStatus(sid) {
+            const card = document.getElementById(`card-${sid}`);
+            
+            if (card) {
+                // 1. 决定使用哪种消失动画
+                if (viewMode === 'remaining') {
+                    // 点名模式: 变绿缩小
+                    card.classList.add('anim-check-in');
+                } else {
+                    // 查看已到模式: 变白缩小
+                    card.classList.add('anim-undo');
                 }
+                
+                // 2. 等待卡片自身动画完成 (300ms)
+                setTimeout(() => {
+                    // 3. 启动 View Transition 以平滑重排其他卡片
+                    if (document.startViewTransition) {
+                        document.startViewTransition(() => {
+                            executeStatusChange(sid);
+                        });
+                    } else {
+                        executeStatusChange(sid);
+                    }
+                }, 300); // 略小于动画时间，衔接更紧密
+            } else {
+                executeStatusChange(sid);
             }
-            return "";
         }
 
-        function calculateCycle() {
-            const date = new Date();
-            const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-            const dayNum = d.getUTCDay() || 7;
-            d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-            const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-            const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
-            currentCycle = `${d.getUTCFullYear()}-W${weekNo}`;
-            document.getElementById('current-cycle-display').innerText = `周期: ${currentCycle}`;
-            if (!appData.records[currentCycle]) appData.records[currentCycle] = [];
-            if (!appData.timestamps[currentCycle]) appData.timestamps[currentCycle] = {};
-        }
-
-        function getFormattedTime() {
-            const now = new Date();
-            const w = "日一二三四五六".charAt(now.getDay());
-            const m = now.getMonth() + 1;
-            const d = now.getDate();
-            const h = String(now.getHours()).padStart(2, '0');
-            const min = String(now.getMinutes()).padStart(2, '0');
-            return `${now.getFullYear()}-${m}-${d}(${w}) ${h}:${min}`;
-        }
-
-        // --- 导航与状态切换 (Feature 3) ---
-        function toggleViewMode() {
-            // 检查当前是否在首页，如果不在，先跳转回首页
-            const homePage = document.getElementById('page-home');
-            if (homePage.classList.contains('hidden')) {
-                switchTab('home');
-                // 跳转后如果是"只看未到"模式，用户点击按钮可能是想看"已到"，
-                // 所以我们可以直接把 viewMode 切换到 present。
-                // 如果当前已经是 'present'，就变成 'remaining'
-                // 但为了逻辑简单，我们统一执行：跳回首页 -> 执行切换
-            }
-            viewMode = viewMode === 'remaining' ? 'present' : 'remaining';
-            renderApp();
-        }
-
-        function toggleStatus(sid, isUndoOp = false) {
+        function executeStatusChange(sid, isUndoOp = false) {
             const record = appData.records[currentCycle];
             const timeRecord = appData.timestamps[currentCycle];
             const index = record.indexOf(sid);
+            
+            let actionType = '';
+
             if (index === -1) {
                 record.push(sid);
                 timeRecord[sid] = getFormattedTime();
-                if (!isUndoOp) lastAction = { sid: sid, time: Date.now(), type: 'check-in' };
+                actionType = 'check-in';
             } else {
                 record.splice(index, 1);
                 delete timeRecord[sid];
-                if (!isUndoOp) lastAction = null;
+                actionType = 'uncheck';
             }
+
+            if (!isUndoOp) lastAction = { sid: sid, time: Date.now(), type: actionType };
+
             saveData();
             renderApp();
+            
             if (!document.getElementById('page-stats').classList.contains('hidden')) renderChart();
-            if (isUndoOp) setTimeout(() => document.getElementById(`card-${sid}`)?.classList.add('pop-in'), 50);
+            
+            if (isUndoOp) {
+                // 撤回操作 (摇一摇) 时，让新出现的卡片有一个弹入动画
+                setTimeout(() => {
+                    const card = document.getElementById(`card-${sid}`);
+                    if (card) card.classList.add('pop-in');
+                }, 50);
+                showToast(actionType === 'check-in' ? "已恢复：已到" : "已撤回：未到");
+            }
+        }
+
+        // --- 摇一摇逻辑 ---
+        function initShakeDetection() {
+            const threshold = 12; let lastX=0, lastY=0, lastZ=0;
+            window.addEventListener('devicemotion', function(e){
+                const a = e.accelerationIncludingGravity; if(!a) return;
+                const dx = Math.abs(lastX - a.x); const dy = Math.abs(lastY - a.y); const dz = Math.abs(lastZ - a.z);
+                if((dx > threshold && dy > threshold) || (dx > threshold && dz > threshold) || (dy > threshold && dz > threshold)) {
+                    const now = Date.now();
+                    if(now - lastShakeTime > 1000) { lastShakeTime = now; handleShake(); }
+                }
+                lastX = a.x; lastY = a.y; lastZ = a.z;
+            });
+        }
+        
+        function handleShake() {
+            if (lastAction && Date.now() - lastAction.time < 5000) {
+                const sid = lastAction.sid;
+                // 触发反向操作，并强制使用动画
+                executeStatusChange(sid, true);
+                lastAction = null;
+            }
         }
 
         function renderApp() {
-            const grid = document.getElementById('student-grid');
-            const search = document.getElementById('search-input').value.toLowerCase();
-            const empty = document.getElementById('empty-state');
+            const grid = document.getElementById('student-grid'); 
+            const search = document.getElementById('search-input').value.toLowerCase().trim();
+            const empty = document.getElementById('empty-state'); 
             const noData = document.getElementById('no-data-state');
-
-            // 计算未到人数 (Feature 2)
+            
             const total = appData.students.length;
             const presentCount = appData.records[currentCycle] ? appData.records[currentCycle].length : 0;
             const absentCount = total - presentCount;
+            
             const badge = document.getElementById('absent-badge');
-
             if (total > 0 && absentCount > 0) {
                 badge.classList.remove('hidden');
                 document.getElementById('absent-count').innerText = absentCount;
@@ -399,91 +363,95 @@
                 badge.classList.add('hidden');
             }
 
-            grid.innerHTML = "";
-            if (total === 0) { noData.classList.remove('hidden'); empty.classList.add('hidden'); return; }
+            grid.innerHTML = ""; 
+            if(total === 0){ noData.classList.remove('hidden'); empty.classList.add('hidden'); return; }
             noData.classList.add('hidden');
-
-            let list = appData.students.filter(s => {
-                const p = appData.records[currentCycle] && appData.records[currentCycle].includes(s.sid);
-                // 搜索逻辑增强：匹配 姓名 OR 学号 OR 拼音首字母
-                const abbr = s.abbr || "";
-                const m = s.name.toLowerCase().includes(search)
-                    || s.sid.toLowerCase().includes(search)
-                    || abbr.includes(search); // 新增拼音搜索
-
-                return viewMode === 'remaining' ? (!p && m) : (p && m);
-            });
-            list.sort((a, b) => isSortAsc ? a.sid.localeCompare(b.sid) : b.sid.localeCompare(a.sid));
-
-            if (list.length === 0 && !search && viewMode === 'remaining') empty.classList.remove('hidden');
-            else {
-                empty.classList.add('hidden'); list.forEach(s => {
-                    const p = appData.records[currentCycle] && appData.records[currentCycle].includes(s.sid);
-                    const timeStr = appData.timestamps[currentCycle]?.[s.sid] || '已到';
-                    const div = document.createElement('div'); div.id = `card-${s.sid}`;
-                    div.className = `${viewMode === 'remaining' ? 'bg-white border-blue-100 text-gray-800' : 'bg-green-50 border-green-200 text-green-800'} border shadow-sm rounded-xl p-4 flex flex-col items-center justify-center cursor-pointer card-anim select-none h-28 relative`;
-                    div.innerHTML = `<h3 class="font-bold text-lg">${s.name}</h3><p class="text-sm text-gray-400 mt-1">${s.sid}</p>${p ? `<div class="text-[10px] text-green-600 mt-1 text-center font-medium">${timeStr}</div>` : ''}`;
-                    div.onclick = () => toggleStatus(s.sid); grid.appendChild(div);
-                });
+            
+            if (typeof Pinyin !== 'undefined') {
+                appData.students.forEach(s => { if (!s.abbr) s.abbr = getAbbr(s.name); });
             }
 
+            let list = appData.students.filter(s => {
+                const isPresent = appData.records[currentCycle] && appData.records[currentCycle].includes(s.sid);
+                const abbr = s.abbr || "";
+                const matches = s.name.toLowerCase().includes(search) || s.sid.toLowerCase().includes(search) || abbr.includes(search);
+                return viewMode === 'remaining' ? (!isPresent && matches) : (isPresent && matches);
+            });
+            
+            list.sort((a,b) => isSortAsc ? a.sid.localeCompare(b.sid) : b.sid.localeCompare(a.sid));
+            
+            if(list.length === 0 && !search && viewMode === 'remaining') {
+                empty.classList.remove('hidden');
+            } else { 
+                empty.classList.add('hidden'); 
+                list.forEach(s => {
+                    const isPresent = appData.records[currentCycle] && appData.records[currentCycle].includes(s.sid);
+                    const timeStr = appData.timestamps[currentCycle]?.[s.sid] || '已到';
+                    const div = document.createElement('div'); 
+                    div.id = `card-${s.sid}`;
+                    
+                    // 核心：设置 View Transition Name，实现重排动画
+                    div.style.viewTransitionName = `card-${s.sid}`;
+                    
+                    div.className = `student-card ${viewMode === 'remaining' ? 'bg-white border-blue-100 text-gray-800' : 'bg-green-50 border-green-200 text-green-800'} border shadow-sm rounded-xl p-4 flex flex-col items-center justify-center cursor-pointer select-none h-28 relative active:scale-95 transition-transform`;
+                    
+                    div.innerHTML = `<h3 class="font-bold text-lg">${s.name}</h3><p class="text-sm text-gray-400 mt-1">${s.sid}</p>${isPresent ? `<div class="text-[10px] text-green-600 mt-1 text-center font-medium">${timeStr}</div>` : ''}`;
+                    div.onclick = () => toggleStatus(s.sid); 
+                    grid.appendChild(div);
+                });
+            }
+            
             const vb = document.getElementById('view-mode-btn');
             vb.innerHTML = viewMode === 'remaining' ? '<i class="fas fa-history"></i> 查看已到' : '<i class="fas fa-arrow-left"></i> 返回点名';
             vb.className = viewMode === 'remaining' ? "bg-gray-100 text-gray-600 px-3 py-1 rounded text-sm font-medium" : "bg-green-100 text-green-700 px-3 py-1 rounded text-sm font-medium";
         }
 
-        // ... [保持其余图表、摇一摇、导入导出函数不变] ...
-
+        // [辅助函数保持不变]
+        function calculateCycle() {
+            const date = new Date(); const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+            const dayNum = d.getUTCDay() || 7; d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+            const yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+            const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1)/7);
+            currentCycle = `${d.getUTCFullYear()}-W${weekNo}`;
+            document.getElementById('current-cycle-display').innerText = `周期: ${currentCycle}`;
+            if (!appData.records[currentCycle]) appData.records[currentCycle] = [];
+            if (!appData.timestamps[currentCycle]) appData.timestamps[currentCycle] = {};
+        }
+        function getFormattedTime() {
+            const now = new Date(); const w = "日一二三四五六".charAt(now.getDay());
+            const m = now.getMonth() + 1; const d = now.getDate();
+            const h = String(now.getHours()).padStart(2, '0'); const min = String(now.getMinutes()).padStart(2, '0');
+            return `${now.getFullYear()}-${m}-${d}(${w}) ${h}:${min}`;
+        }
+        function toggleViewMode() { 
+             const homePage = document.getElementById('page-home');
+             if (homePage.classList.contains('hidden')) switchTab('home');
+             viewMode = viewMode === 'remaining' ? 'present' : 'remaining'; 
+             renderApp(); 
+        }
+        function requestShakePermission() { if(typeof DeviceMotionEvent.requestPermission==='function')DeviceMotionEvent.requestPermission().then(s=>{if(s==='granted'){showToast("摇一摇开启");document.getElementById('shake-btn').style.display='none'}}); }
         function toggleDropdown(event) { event.stopPropagation(); document.getElementById('dropdown-options').classList.toggle('hidden'); }
         function closeDropdownGlobal(event) { const menu = document.getElementById('dropdown-options'); if (!menu.classList.contains('hidden')) menu.classList.add('hidden'); }
         function selectChartType(type, label) { chartType = type; document.getElementById('dropdown-label').innerText = label; document.getElementById('dropdown-options').classList.add('hidden'); chartOffset = 0; renderChart(); }
-
         function getAggregatedData() {
             const total = appData.students.length || 1;
             if (chartType === 'week') {
                 const keys = Object.keys(appData.records).sort();
-                return { labels: keys, values: keys.map(k => (appData.records[k].length / total * 100).toFixed(1)) };
+                return { labels: keys, values: keys.map(k => (appData.records[k].length/total*100).toFixed(1)) };
             } else {
-                let temp = {};
-                Object.keys(appData.timestamps).forEach(k => {
-                    const data = appData.timestamps[k];
-                    Object.keys(data).forEach(sid => {
-                        const t = data[sid];
-                        let dateStr = "";
-                        if (t.includes('(')) dateStr = t.split('(')[0];
-                        else if (t.includes('/')) dateStr = t.split(' ')[0].replace(/\//g, '-');
-                        if (dateStr) {
-                            const dp = dateStr.split('-');
-                            const key = chartType === 'month' ? `${dp[0]}-${dp[1]}` : dp[0];
-                            if (!temp[key]) temp[key] = new Set();
-                            temp[key].add(sid);
-                        }
+                let temp = {}; Object.keys(appData.timestamps).forEach(k => {
+                    const data = appData.timestamps[k]; Object.keys(data).forEach(sid => {
+                        const t = data[sid]; let dateStr = "";
+                        if(t.includes('(')) dateStr = t.split('(')[0]; else if(t.includes('/')) dateStr = t.split(' ')[0].replace(/\//g, '-');
+                        if(dateStr) { const dp = dateStr.split('-'); const key = chartType==='month' ? `${dp[0]}-${dp[1]}` : dp[0]; if(!temp[key]) temp[key] = new Set(); temp[key].add(sid); }
                     });
                 });
-                const keys = Object.keys(temp).sort();
-                return { labels: keys, values: keys.map(k => (temp[k].size / total * 100).toFixed(1)) };
+                const keys = Object.keys(temp).sort(); return { labels: keys, values: keys.map(k => (temp[k].size/total*100).toFixed(1)) };
             }
         }
-        function initShakeDetection() {
-            const threshold = 15; let lastX = 0, lastY = 0, lastZ = 0;
-            window.addEventListener('devicemotion', function (e) {
-                const a = e.accelerationIncludingGravity; if (!a) return;
-                const dx = Math.abs(lastX - a.x), dy = Math.abs(lastY - a.y), dz = Math.abs(lastZ - a.z);
-                if ((dx > threshold && dy > threshold) || (dx > threshold && dz > threshold) || (dy > threshold && dz > threshold)) {
-                    if (Date.now() - lastShakeTime > 1000) { lastShakeTime = Date.now(); handleShake(); }
-                }
-                lastX = a.x; lastY = a.y; lastZ = a.z;
-            });
-        }
-        function requestShakePermission() { if (typeof DeviceMotionEvent.requestPermission === 'function') DeviceMotionEvent.requestPermission().then(s => { if (s === 'granted') { showToast("摇一摇开启"); document.getElementById('shake-btn').style.display = 'none' } }); }
-        function handleShake() { if (lastAction && lastAction.type === 'check-in' && Date.now() - lastAction.time < 5000) { toggleStatus(lastAction.sid, true); showToast(`已撤回`); lastAction = null; } }
         function initChartSwipe() {
-            const area = document.getElementById('chart-wrapper');
-            area.addEventListener('touchstart', e => touchStartX = e.changedTouches[0].screenX, { passive: true });
-            area.addEventListener('touchend', e => {
-                const diff = e.changedTouches[0].screenX - touchStartX;
-                if (Math.abs(diff) > 50) shiftChart(diff > 0 ? 1 : -1);
-            }, { passive: true });
+            const area = document.getElementById('chart-wrapper'); area.addEventListener('touchstart', e => touchStartX = e.changedTouches[0].screenX, {passive: true});
+            area.addEventListener('touchend', e => { const diff = e.changedTouches[0].screenX - touchStartX; if (Math.abs(diff) > 50) shiftChart(diff > 0 ? 1 : -1); }, {passive: true});
         }
         function shiftChart(dir) {
             const data = getAggregatedData(); const next = chartOffset + dir; const container = document.getElementById('chart-wrapper');
@@ -491,74 +459,44 @@
             if (next * CHART_WINDOW_SIZE >= data.labels.length) { triggerBounce(container, 'bounce-right'); showToast("到底了"); return; }
             chartOffset = next; renderChart();
         }
-        function triggerBounce(el, cls) { el.classList.remove('bounce-left', 'bounce-right'); void el.offsetWidth; el.classList.add(cls); setTimeout(() => el.classList.remove(cls), 300); }
+        function triggerBounce(el, cls) { el.classList.remove('bounce-left', 'bounce-right'); void el.offsetWidth; el.classList.add(cls); setTimeout(()=>el.classList.remove(cls), 300); }
         function renderChart() {
             const ctx = document.getElementById('attendanceChart'); const d = getAggregatedData();
-            if (d.labels.length === 0) return;
-            let end = d.labels.length - (chartOffset * CHART_WINDOW_SIZE); let start = end - CHART_WINDOW_SIZE;
-            if (end > d.labels.length) end = d.labels.length; if (start < 0) start = 0;
-            if (chartInstance) chartInstance.destroy();
+            if (d.labels.length === 0) return; let end = d.labels.length - (chartOffset * CHART_WINDOW_SIZE); let start = end - CHART_WINDOW_SIZE;
+            if (end > d.labels.length) end = d.labels.length; if (start < 0) start = 0; if (chartInstance) chartInstance.destroy();
             chartInstance = new Chart(ctx, {
                 type: 'bar',
                 data: { labels: d.labels.slice(start, end), datasets: [{ data: d.values.slice(start, end), backgroundColor: '#3b82f6', borderRadius: 6, barPercentage: 0.6 }] },
-                options: {
-                    responsive: true, maintainAspectRatio: false, layout: { padding: { top: 25 } },
-                    plugins: { legend: { display: false }, datalabels: { anchor: 'end', align: 'top', color: '#666', font: { weight: 'bold' }, formatter: v => v + '%' } },
-                    scales: { y: { beginAtZero: true, max: 100, grid: { borderDash: [2, 4] } }, x: { grid: { display: false } } }
-                }
+                options: { responsive: true, maintainAspectRatio: false, layout: { padding: { top: 25 } }, plugins: { legend: {display:false}, datalabels: { anchor:'end', align:'top', color:'#666', font:{weight:'bold'}, formatter: v=>v+'%' } }, scales: { y: {beginAtZero:true, max:100, grid:{borderDash:[2,4]}}, x: {grid:{display:false}} } }
             });
         }
         function exportToExcel(mode) {
             if (appData.students.length === 0) return alert("无数据");
             let exportData = [], fileName = "";
             if (mode === 'current') {
-                fileName = `点名数据_${currentCycle}.xlsx`;
-                exportData = appData.students.map(s => {
-                    const isPresent = appData.records[currentCycle] && appData.records[currentCycle].includes(s.sid);
-                    return { "学号": s.sid, "姓名": s.name, "周期": currentCycle, "状态": isPresent ? "已到" : "缺勤", "时间": isPresent ? (appData.timestamps[currentCycle]?.[s.sid] || "补签") : "-" };
-                });
+                fileName = `点名数据_${currentCycle}.xlsx`; exportData = appData.students.map(s => { const isPresent = appData.records[currentCycle] && appData.records[currentCycle].includes(s.sid); return { "学号": s.sid, "姓名": s.name, "周期": currentCycle, "状态": isPresent ? "已到" : "缺勤", "时间": isPresent ? (appData.timestamps[currentCycle]?.[s.sid] || "补签") : "-" }; });
             } else {
-                fileName = `点名总表_截至${new Date().toLocaleDateString().replace(/\//g, '-')}.xlsx`;
-                const allCycles = Object.keys(appData.records).sort();
-                if (allCycles.length === 0) return alert("暂无历史记录");
-                allCycles.forEach(cycle => {
-                    appData.students.forEach(s => {
-                        const isPresent = appData.records[cycle] && appData.records[cycle].includes(s.sid);
-                        exportData.push({ "周期": cycle, "学号": s.sid, "姓名": s.name, "状态": isPresent ? "已到" : "缺勤", "时间": isPresent ? (appData.timestamps[cycle]?.[s.sid] || "补签") : "-" });
-                    });
-                });
+                fileName = `点名总表_截至${new Date().toLocaleDateString().replace(/\//g,'-')}.xlsx`; const allCycles = Object.keys(appData.records).sort(); if (allCycles.length === 0) return alert("暂无历史记录"); allCycles.forEach(cycle => { appData.students.forEach(s => { const isPresent = appData.records[cycle] && appData.records[cycle].includes(s.sid); exportData.push({ "周期": cycle, "学号": s.sid, "姓名": s.name, "状态": isPresent ? "已到" : "缺勤", "时间": isPresent ? (appData.timestamps[cycle]?.[s.sid] || "补签") : "-" }); }); });
             }
-            const ws = XLSX.utils.json_to_sheet(exportData);
-            ws['!cols'] = [{ wch: 12 }, { wch: 15 }, { wch: 10 }, { wch: 8 }, { wch: 22 }];
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
-            XLSX.writeFile(wb, fileName);
+            const ws = XLSX.utils.json_to_sheet(exportData); ws['!cols'] = [{wch: 12}, {wch: 15}, {wch: 10}, {wch: 8}, {wch: 22}]; const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Sheet1"); XLSX.writeFile(wb, fileName);
         }
-
         function importData() {
             const text = document.getElementById('import-area').value; if (!text.trim()) return alert("请输入内容");
             const lines = text.split('\n'); const newS = [];
-            lines.forEach(l => {
-                const p = l.replace(/,/g, ' ').split(/\s+/).filter(i => i);
-                if (p.length >= 2) {
-                    // 导入时直接生成拼音
-                    const name = p[0];
-                    newS.push({ name: name, sid: p[1], abbr: generateAbbr(name) });
+            lines.forEach(l => { 
+                const p = l.replace(/,/g, ' ').split(/\s+/).filter(i=>i); 
+                if (p.length >= 2) { 
+                    const name = p[0]; let abbr = "";
+                    if(typeof Pinyin!=='undefined') try { abbr = Pinyin.getPinyin(name).map(x=>x[0]).join('').toLowerCase(); } catch(e){}
+                    newS.push({ name: name, sid: p[1], abbr: abbr }); 
                 }
             });
             if (newS.length > 0) { appData.students = newS; saveData(); alert(`已导入 ${newS.length} 人`); switchTab('home'); renderApp(); }
         }
-        function clearAllData() { if (confirm("确定清空所有数据？")) { appData = { students: [], records: {}, timestamps: {} }; saveData(); renderApp(); chartInstance?.destroy(); } }
+        function clearAllData() { if(confirm("确定清空所有数据？")) { appData = { students: [], records: {}, timestamps: {} }; saveData(); renderApp(); chartInstance?.destroy(); } }
         function toggleSort() { isSortAsc = !isSortAsc; renderApp(); }
-        function switchTab(t) {
-            ['home', 'stats', 'settings'].forEach(x => document.getElementById(`page-${x}`).classList.add('hidden'));
-            document.getElementById(`page-${t}`).classList.remove('hidden');
-            document.querySelectorAll('nav button').forEach(b => { b.classList.remove('tab-active', 'text-blue-600'); b.classList.add('tab-inactive'); });
-            document.getElementById(`tab-${t}`).classList.add('tab-active', 'text-blue-600');
-            if (t === 'stats') { chartOffset = 0; setTimeout(renderChart, 50); }
-        }
-        function showToast(m) { const x = document.getElementById("toast"); x.innerText = m; x.classList.add("show"); setTimeout(() => x.classList.remove("show"), 2000); }
+        function switchTab(t) { ['home', 'stats', 'settings'].forEach(x => document.getElementById(`page-${x}`).classList.add('hidden')); document.getElementById(`page-${t}`).classList.remove('hidden'); document.querySelectorAll('nav button').forEach(b => { b.classList.remove('tab-active', 'text-blue-600'); b.classList.add('tab-inactive'); }); document.getElementById(`tab-${t}`).classList.add('tab-active', 'text-blue-600'); if (t === 'stats') { chartOffset=0; setTimeout(renderChart, 50); } }
+        function showToast(m) { const x=document.getElementById("toast");x.innerText=m;x.classList.add("show");setTimeout(()=>x.classList.remove("show"),2000); }
     </script>
 </body>
-
 </html>
