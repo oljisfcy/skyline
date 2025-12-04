@@ -40,7 +40,7 @@
 
         /* 1. 点名消失动画 (白 -> 绿 -> 缩小消失) */
         .anim-check-in {
-            animation: checkInExit 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+            animation: checkInExit 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
             pointer-events: none;
             z-index: 10; /* 保证动画时在最上层 */
         }
@@ -52,19 +52,18 @@
 
         /* 2. 撤回消失动画 (绿 -> 白 -> 缩小消失) */
         .anim-undo {
-            animation: undoExit 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+            animation: undoExit 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
             pointer-events: none;
             z-index: 10;
         }
         @keyframes undoExit {
-            0% { transform: scale(1); background-color: #f0fdf4; border-color: #bbf7d0; opacity: 1; }
-            50% { background-color: #ffffff; border-color: #e5e7eb; transform: scale(0.95); opacity: 0.9; }
+            0% { transform: scale(1); opacity: 1; }
             100% { transform: scale(0); opacity: 0; }
         }
 
         /* 3. 列表重排动画 (View Transitions API) */
         ::view-transition-group(root) {
-            animation-duration: 0.4s;
+            animation-duration: 0.25s;
         }
         /* 卡片通用样式，启用硬件加速 */
         .student-card {
@@ -213,6 +212,7 @@
         Chart.register(ChartDataLabels);
 
         let appData = { students: [], records: {}, timestamps: {} };
+        let { pinyin } = pinyinPro;
         let currentCycle = "";
         let isSortAsc = true;
         let viewMode = 'remaining';
@@ -248,7 +248,6 @@
         function saveData() { localStorage.setItem('class_attendance_plus', JSON.stringify(appData)); }
 
         function getAbbr(name) {
-            var { pinyin } = pinyinPro;
             if (typeof pinyin === 'undefined') return ""; 
             try {
                 // 1. 获取拼音字符串 (例如 "ZHU JIN HUA")
@@ -378,7 +377,7 @@
             noData.classList.add('hidden');
             
             // 确保每个学生都有首字母缩写
-            if (typeof Pinyin !== 'undefined') {
+            if (typeof pinyin !== 'undefined') {
                 appData.students.forEach(s => { if (!s.abbr) s.abbr = getAbbr(s.name); });
             }
 
@@ -504,7 +503,7 @@
                 const p = l.replace(/,/g, ' ').split(/\s+/).filter(i=>i); 
                 if (p.length >= 2) { 
                     const name = p[0]; let abbr = "";
-                    if(typeof Pinyin!=='undefined') try { abbr = Pinyin.getPinyin(name).map(x=>x[0]).join('').toLowerCase(); } catch(e){}
+                    if(typeof pinyin!=='undefined') try { abbr = pinyin(name).map(x=>x[0]).join('').toLowerCase(); } catch(e){}
                     newS.push({ name: name, sid: p[1], abbr: abbr }); 
                 }
             });
