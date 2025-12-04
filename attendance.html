@@ -191,6 +191,20 @@
                     <button onclick="clearAllData()" class="flex-1 bg-red-100 text-red-600 py-2 rounded-lg">清空</button>
                 </div>
             </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm mt-4">
+                <h2 class="font-bold text-gray-700 mb-2">数据备份与恢复</h2>
+                <p class="text-xs text-gray-500 mb-3">
+                    从“导出全部历史数据”生成的 Excel 文件中恢复数据。<br>
+                    <span class="text-red-500 font-bold">注意：此操作将覆盖当前所有数据！</span>
+                </p>
+                
+                <input type="file" id="backup-file-input" accept=".xlsx, .xls" class="hidden" onchange="handleRestore(this)">
+                
+                <button onclick="document.getElementById('backup-file-input').click()" 
+                        class="w-full bg-orange-50 text-orange-700 border border-orange-200 py-3 rounded-lg font-bold shadow-sm hover:bg-orange-100 flex justify-center items-center gap-2 active:scale-95 transition-transform">
+                    <i class="fas fa-file-import"></i> 导入备份 (恢复数据)
+                </button>
+            </div>
         </div>
     </main>
 
@@ -513,6 +527,117 @@
         function toggleSort() { isSortAsc = !isSortAsc; renderApp(); }
         function switchTab(t) { ['home', 'stats', 'settings'].forEach(x => document.getElementById(`page-${x}`).classList.add('hidden')); document.getElementById(`page-${t}`).classList.remove('hidden'); document.querySelectorAll('nav button').forEach(b => { b.classList.remove('tab-active', 'text-blue-600'); b.classList.add('tab-inactive'); }); document.getElementById(`tab-${t}`).classList.add('tab-active', 'text-blue-600'); if (t === 'stats') { chartOffset=0; setTimeout(renderChart, 50); } }
         function showToast(m) { const x=document.getElementById("toast");x.innerText=m;x.classList.add("show");setTimeout(()=>x.classList.remove("show"),2000); }
+        function handleRestore(inputElement) {
+            const file = inputElement.files[0];
+            if (!file) return;
+
+            // 二次确认，防止误操作
+            if (!confirm("警告：导入备份将【清空并覆盖】当前所有数据！\n\n确定要继续吗？")) {
+                inputElement.value = ''; // 清空选择，允许再次选择同一文件
+                return;
+            }
+
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, {type: 'array'});
+                    
+                    // 读取第一个 Sheet
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    
+                    // 转换为 JSON
+                    const jsonSheet = XLSX.utils.sheet_to_json(worksheet);
+
+                    if (jsonSheet.length === 0) {
+                        alert("文件内容为空或格式不正确");
+                        return;
+                    }
+
+                    // 检查文件头是否包含关键字段 (兼容性检查)
+                    const firstRow = jsonSheet[0];
+                    if (!("学号" in firstRow) || !("姓名" in firstRow) || !("周期" in firstRow)) {
+                        alert("文件格式不匹配！请使用由本应用导出的“全部历史数据”Excel文件。");
+                        return;
+                    }
+
+                    // --- 重构数据结构 ---
+                    const newStudentsMap = new Map(); // 用于去重学生
+                    const newRecords = {};
+                    const newTimestamps = {};
+
+                    jsonSheet.forEach(row => {
+                        const sid = String(row["学号"]).trim(); // 确保学号是字符串
+                        const name = String(row["姓名"]).trim();
+                        const cycle = row["周期"];
+                        const status = row["状态"]; // "已到" 或 "缺勤"
+                        const time = row["时间"];
+
+                        // 1. 重建学生列表 (利用Map去重)
+                        if (!newStudentsMap.has(sid)) {
+                            // 重新生成拼音缩写
+                            let abbr = "";
+                            if (typeof pinyin !== 'undefined') {
+                                try { abbr = pinyin(name).split(' ').map(x => x[0]).join('').toLowerCase(); } catch(e) {}
+                            }
+                            newStudentsMap.set(sid, { name: name, sid: sid, abbr: abbr });
+                        }
+
+                        // 2. 重建记录
+                        if (status === "已到") {
+                            if (!newRecords[cycle]) newRecords[cycle] = [];
+                            // 防止同一周期同一人重复记录
+                            if (!newRecords[cycle].includes(sid)) {
+                                newRecords[cycle].push(sid);
+                            }
+
+                            // 3. 重建时间戳
+                            if (time && time !== "-" && time !== "补签") {
+                                if (!newTimestamps[cycle]) newTimestamps[cycle] = {};
+                                newTimestamps[cycle][sid] = time;
+                            }
+                        }
+                    });
+
+                    // 将 Map 转回 Array
+                    const newStudents = Array.from(newStudentsMap.values());
+
+                    // --- 更新应用数据 ---
+                    appData = {
+                        students: newStudents,
+                        records: newRecords,
+                        timestamps: newTimestamps
+                    };
+
+                    saveData(); // 保存到 LocalStorage
+                    
+                    // 重新计算当前周期逻辑 (确保 UI 状态正确)
+                    calculateCycle(); 
+                    renderApp();
+                    
+                    // 如果图表已初始化，销毁它以便下次重新渲染
+                    if (chartInstance) {
+                        chartInstance.destroy();
+                        chartInstance = null;
+                    }
+
+                    alert(`恢复成功！\n共恢复学生: ${newStudents.length} 人\n包含历史周期数据。`);
+                    
+                    // 切换回主页查看结果
+                    switchTab('home');
+
+                } catch (error) {
+                    console.error(error);
+                    alert("读取文件失败，请检查文件是否损坏。");
+                } finally {
+                    inputElement.value = ''; // 清空 input 允许重复上传
+                }
+            };
+
+            reader.readAsArrayBuffer(file);
+        }
     </script>
 </body>
 </html>
