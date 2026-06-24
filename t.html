@@ -1,1 +1,269 @@
-<h1>FUFU IS BAKA!!!</h1>
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FUFU IS BAKA!!!</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+        }
+
+        .container {
+            text-align: center;
+            position: relative;
+        }
+
+        h1 {
+            font-size: 5rem;
+            color: #fff;
+            text-shadow: 
+                0 0 10px #ff006e,
+                0 0 20px #ff006e,
+                0 0 40px #ff006e,
+                0 0 80px #ff006e;
+            animation: pulse 2s ease-in-out infinite, shake 0.5s ease-in-out infinite;
+            cursor: pointer;
+            transition: transform 0.3s;
+            user-select: none;
+        }
+
+        h1:hover {
+            transform: scale(1.1) rotate(-5deg);
+        }
+
+        h1:active {
+            transform: scale(0.9) rotate(5deg);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px) rotate(-2deg); }
+            75% { transform: translateX(5px) rotate(2deg); }
+        }
+
+        .subtitle {
+            color: #ffd700;
+            font-size: 1.5rem;
+            margin-top: 20px;
+            opacity: 0;
+            animation: fadeIn 1s ease-out 0.5s forwards;
+        }
+
+        @keyframes fadeIn {
+            to { opacity: 1; }
+        }
+
+        .emoji-rain {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        .emoji {
+            position: absolute;
+            font-size: 2rem;
+            animation: fall linear;
+            opacity: 0.8;
+        }
+
+        @keyframes fall {
+            to {
+                transform: translateY(100vh) rotate(360deg);
+            }
+        }
+
+        .counter {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(255,255,255,0.2);
+            padding: 15px 25px;
+            border-radius: 20px;
+            color: white;
+            font-size: 1.2rem;
+            backdrop-filter: blur(10px);
+        }
+
+        .counter span {
+            color: #ffd700;
+            font-weight: bold;
+            font-size: 2rem;
+        }
+
+        .baka-btn {
+            margin-top: 30px;
+            padding: 15px 40px;
+            font-size: 1.3rem;
+            border: none;
+            border-radius: 50px;
+            background: #ff006e;
+            color: white;
+            cursor: pointer;
+            box-shadow: 0 10px 30px rgba(255,0,110,0.4);
+            transition: all 0.3s;
+            opacity: 0;
+            animation: fadeIn 1s ease-out 1s forwards;
+        }
+
+        .baka-btn:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(255,0,110,0.6);
+        }
+
+        .baka-btn:active {
+            transform: translateY(0);
+        }
+
+        /* 点击后的爆炸效果 */
+        .explosion {
+            position: absolute;
+            pointer-events: none;
+            animation: explode 0.6s ease-out forwards;
+        }
+
+        @keyframes explode {
+            0% {
+                transform: scale(0);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(3);
+                opacity: 0;
+            }
+        }
+
+        /* 生气模式 */
+        .angry-mode h1 {
+            color: #ff3333;
+            text-shadow: 
+                0 0 20px #ff0000,
+                0 0 40px #ff0000,
+                0 0 80px #ff0000,
+                0 0 120px #ff0000;
+            animation: shake 0.1s ease-in-out infinite, pulse 0.5s ease-in-out infinite;
+        }
+
+        .angry-mode body {
+            background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);
+        }
+    </style>
+</head>
+<body>
+    <div class="emoji-rain" id="emojiRain"></div>
+    
+    <div class="container">
+        <h1 id="title" onclick="handleClick(event)">FUFU IS BAKA!!!</h1>
+        <p class="subtitle">(点击标题有惊喜 ✨)</p>
+        <button class="baka-btn" onclick="makeItRain()">🎉 召唤 BAKA 雨</button>
+    </div>
+
+    <div class="counter">
+        BAKA 次数: <span id="count">0</span>
+    </div>
+
+    <script>
+        let count = 0;
+        let angryLevel = 0;
+        const emojis = ['🤪', '😝', '🎉', '✨', '💥', '🔥', '💢', '😤', '👻', '🌟'];
+        const bakaSounds = [
+            'BAKA!', '笨蛋!', 'バカ!', '傻瓜!', '憨憨!',
+            'FUFU!', '嘿嘿!', '啊对对对!', '是是是!'
+        ];
+
+        function handleClick(e) {
+            count++;
+            document.getElementById('count').textContent = count;
+            
+            // 创建爆炸文字
+            createExplosion(e.clientX, e.clientY);
+            
+            // 生气等级
+            angryLevel++;
+            if (angryLevel > 10) {
+                document.body.classList.add('angry-mode');
+                document.getElementById('title').textContent = 'FUFU 真的生气了!!! 💢';
+            } else if (angryLevel > 5) {
+                document.getElementById('title').textContent = 'FUFU 有点生气了!! 😤';
+            }
+
+            // 随机改变颜色
+            const hue = Math.random() * 360;
+            document.getElementById('title').style.textShadow = `
+                0 0 10px hsl(${hue}, 100%, 50%),
+                0 0 20px hsl(${hue}, 100%, 50%),
+                0 0 40px hsl(${hue}, 100%, 50%)
+            `;
+        }
+
+        function createExplosion(x, y) {
+            const text = document.createElement('div');
+            text.className = 'explosion';
+            text.textContent = bakaSounds[Math.floor(Math.random() * bakaSounds.length)];
+            text.style.left = x + 'px';
+            text.style.top = y + 'px';
+            text.style.color = `hsl(${Math.random() * 360}, 100%, 70%)`;
+            text.style.fontSize = '2rem';
+            text.style.fontWeight = 'bold';
+            text.style.position = 'fixed';
+            document.body.appendChild(text);
+            
+            setTimeout(() => text.remove(), 600);
+        }
+
+        function makeItRain() {
+            const container = document.getElementById('emojiRain');
+            
+            for (let i = 0; i < 50; i++) {
+                setTimeout(() => {
+                    const emoji = document.createElement('div');
+                    emoji.className = 'emoji';
+                    emoji.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+                    emoji.style.left = Math.random() * 100 + '%';
+                    emoji.style.animationDuration = (Math.random() * 3 + 2) + 's';
+                    emoji.style.fontSize = (Math.random() * 2 + 1) + 'rem';
+                    container.appendChild(emoji);
+                    
+                    setTimeout(() => emoji.remove(), 5000);
+                }, i * 50);
+            }
+        }
+
+        // 自动下一点小雨
+        setInterval(() => {
+            if (Math.random() > 0.7) {
+                const container = document.getElementById('emojiRain');
+                const emoji = document.createElement('div');
+                emoji.className = 'emoji';
+                emoji.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+                emoji.style.left = Math.random() * 100 + '%';
+                emoji.style.animationDuration = '4s';
+                container.appendChild(emoji);
+                setTimeout(() => emoji.remove(), 4000);
+            }
+        }, 500);
+    </script>
+</body>
+</html>
