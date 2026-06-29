@@ -1,0 +1,11 @@
+README.md
+pyproject.toml
+say/__init__.py
+say/__main__.py
+say/cli.py
+skyline_say.egg-info/PKG-INFO
+skyline_say.egg-info/SOURCES.txt
+skyline_say.egg-info/dependency_links.txt
+skyline_say.egg-info/entry_points.txt
+skyline_say.egg-info/top_level.txt
+tests/test_say.py
