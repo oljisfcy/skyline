@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Custome Text</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body { max-width: 800px; margin: 50px auto; padding: 20px; font-family: sans-serif; }
+    textarea { width: 100%; height: 200px; font-size: 14px; }
+    button { margin-top: 10px; padding: 10px 20px; cursor: pointer; }
+    #message { margin-top: 10px; color: green; }
+    .view-mode { background: #f5f5f5; padding: 20px; border-radius: 8px; }
+    .edit-btn { margin-bottom: 10px; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <!-- 动态内容插入这里 -->
+  </div>
+
+  <script>
+    // ========== 配置：替换为你的真实信息 ==========
+    const SUPABASE_URL = 'https://pdmilqnfrksnmusoaqsa.supabase.co/rest/v1/'
+    const SUPABASE_ANON_KEY = 'sb_publishable_4DoBMs3uCXbRkRIBnTtaTw_BgzjHe8f'
+    
+    const TABLE_NAME = 'config_text'
+    const ROW_ID = 1  // 固定只操作 ID=1 的这一行
+    
+    // 初始化
+    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+    const app = document.getElementById('app')
+
+    // ========== 页面加载：判断模式 ==========
+    async function init() {
+      const urlParams = new URLSearchParams(window.location.search)
+      const mode = urlParams.get('mode')
+      
+      if (mode === 'edit') {
+        // 编辑模式：显示编辑框
+        showEditMode()
+      } else {
+        // 默认：只读模式，显示纯文本
+        showViewMode()
+      }
+    }
+
+    // ========== 只读模式：显示内容 ==========
+    async function showViewMode() {
+      const { data, error } = await supabase
+        .from(TABLE_NAME)
+        .select('content')
+        .eq('id', ROW_ID)
+        .single()
+
+      if (error || !data) {
+        app.innerHTML = '<p>暂无内容</p>'
+        return
+      }
+
+      app.innerHTML = `
+        <div class="view-mode">
+          <h2>当前内容</h2>
+          <pre>${escapeHtml(data.content)}</pre>
+        </div>
+        <p>
+          <a href="?mode=edit">✏️ 编辑内容</a> | 
+          <button onclick="copyContent('${escapeHtml(data.content)}')">📋 复制内容</button>
+        </p>
+      `
+    }
+
+    // ========== 编辑模式：显示编辑框 ==========
+    async function showEditMode() {
+      // 先读取当前内容
+      const { data, error } = await supabase
+        .from(TABLE_NAME)
+        .select('content')
+        .eq('id', ROW_ID)
+        .single()
+
+      const currentContent = data?.content || ''
+
+      app.innerHTML = `
+        <h2>编辑内容</h2>
+        <textarea id="editText">${escapeHtml(currentContent)}</textarea>
+        <div>
+          <button onclick="saveContent()">💾 保存</button>
+          <button onclick="location.href='?'">❌ 取消</button>
+        </div>
+        <div id="message"></div>
+      `
+    }
+
+    // ========== 保存内容 ==========
+    async function saveContent() {
+      const newText = document.getElementById('editText').value
+
+      const { error } = await supabase
+        .from(TABLE_NAME)
+        .update({ content: newText })  // UPDATE 修改这一行
+        .eq('id', ROW_ID)
+
+      const msg = document.getElementById('message')
+      if (error) {
+        msg.textContent = '保存失败: ' + error.message
+        msg.style.color = 'red'
+      } else {
+        msg.textContent = '✅ 保存成功！'
+        setTimeout(() => location.href = '?', 500) // 半秒后返回只读模式
+      }
+    }
+
+    // ========== 复制内容到剪贴板 ==========
+    function copyContent(text) {
+      navigator.clipboard.writeText(text).then(() => {
+        alert('已复制到剪贴板')
+      })
+    }
+
+    // ========== 工具：HTML 转义（防 XSS）==========
+    function escapeHtml(text) {
+      const div = document.createElement('div')
+      div.textContent = text
+      return div.innerHTML
+    }
+
+    // 启动
+    init()
+  </script>
+</body>
+</html>
