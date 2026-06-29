@@ -2,87 +2,115 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Custome Text</title>
+  <title>Config Text</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     body { max-width: 800px; margin: 50px auto; padding: 20px; font-family: sans-serif; }
     textarea { width: 100%; height: 200px; font-size: 14px; }
+    input { width: 100%; box-sizing: border-box; margin: 6px 0 12px; padding: 10px; font-size: 14px; }
     button { margin-top: 10px; padding: 10px 20px; cursor: pointer; }
     #message { margin-top: 10px; color: green; }
-    .view-mode { background: #f5f5f5; padding: 20px; border-radius: 8px; }
+    .view-mode { background: #f5f5f5; padding: 20px; border-radius: 8px; white-space: pre-wrap; }
     .edit-btn { margin-bottom: 10px; }
+    .login-box { max-width: 420px; }
+    .error { color: red; }
   </style>
 </head>
 <body>
-  <div id="app">
-    <!-- 动态内容插入这里 -->
-  </div>
+  <div id="app"></div>
 
   <script>
-    // ========== 配置：替换为你的真实信息 ==========
-    const SUPABASE_URL = 'https://pdmilqnfrksnmusoaqsa.supabase.co/rest/v1/'
+    // ========== 配置 ==========
+    const SUPABASE_URL = 'https://pdmilqnfrksnmusoaqsa.supabase.co'
     const SUPABASE_ANON_KEY = 'sb_publishable_4DoBMs3uCXbRkRIBnTtaTw_BgzjHe8f'
-    
     const TABLE_NAME = 'config_text'
-    const ROW_ID = 1  // 固定只操作 ID=1 的这一行
-    
-    // 初始化
-    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+    const ROW_ID = 1
+
+    // ✅ 修复：变量名改为 supabaseClient
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
     const app = document.getElementById('app')
 
-    // ========== 页面加载：判断模式 ==========
+    // ========== 初始化 ==========
     async function init() {
-      const urlParams = new URLSearchParams(window.location.search)
-      const mode = urlParams.get('mode')
-      
-      if (mode === 'edit') {
-        // 编辑模式：显示编辑框
-        showEditMode()
-      } else {
-        // 默认：只读模式，显示纯文本
-        showViewMode()
+      const params = new URLSearchParams(window.location.search)
+      const format = params.get('format')
+      const mode = params.get('mode')
+
+      if (format === 'raw') {
+        showRawText()
+        return
       }
+
+      mode === 'edit' ? showEditMode() : showViewMode()
     }
 
-    // ========== 只读模式：显示内容 ==========
-    async function showViewMode() {
-      const { data, error } = await supabase
+    // ========== 纯文字链接 ==========
+    async function showRawText() {
+      const { data, error } = await supabaseClient
         .from(TABLE_NAME)
         .select('content')
         .eq('id', ROW_ID)
         .single()
 
+      document.body.innerHTML = ''
+      document.body.style.maxWidth = 'none'
+      document.body.style.margin = '0'
+      document.body.style.padding = '0'
+      document.body.style.whiteSpace = 'pre-wrap'
+      document.body.style.fontFamily = 'monospace'
+
+      if (error || !data) {
+        document.body.textContent = ''
+        return
+      }
+
+      document.body.textContent = data.content || ''
+    }
+
+    // ========== 只读模式 ==========
+    async function showViewMode() {
+      const { data, error } = await supabaseClient  // ✅ 改这里
+        .from(TABLE_NAME)
+        .select('content')
+        .eq('id', ROW_ID)
+        .single()
+        
+      console.log({ data, error })
       if (error || !data) {
         app.innerHTML = '<p>暂无内容</p>'
         return
       }
 
       app.innerHTML = `
-        <div class="view-mode">
-          <h2>当前内容</h2>
-          <pre>${escapeHtml(data.content)}</pre>
-        </div>
+        <div class="view-mode">${escapeHtml(data.content)}</div>
         <p>
-          <a href="?mode=edit">✏️ 编辑内容</a> | 
-          <button onclick="copyContent('${escapeHtml(data.content)}')">📋 复制内容</button>
+          <a href="?mode=edit">✏️ 编辑</a> | 
+          <button onclick="copyContent()">📋 复制</button> |
+          <button onclick="copyRawLink()">🔗 复制纯文字链接</button>
         </p>
       `
+      
+      // 把内容存到全局方便复制
+      window.currentContent = data.content
     }
 
-    // ========== 编辑模式：显示编辑框 ==========
+    // ========== 编辑模式 ==========
     async function showEditMode() {
-      // 先读取当前内容
-      const { data, error } = await supabase
+      const { data: sessionData } = await supabaseClient.auth.getSession()
+      if (!sessionData.session) {
+        showLoginMode()
+        return
+      }
+
+      const { data } = await supabaseClient  // ✅ 改这里
         .from(TABLE_NAME)
         .select('content')
         .eq('id', ROW_ID)
         .single()
 
-      const currentContent = data?.content || ''
-
       app.innerHTML = `
         <h2>编辑内容</h2>
-        <textarea id="editText">${escapeHtml(currentContent)}</textarea>
+        <textarea id="editText">${escapeHtml(data?.content || '')}</textarea>
         <div>
           <button onclick="saveContent()">💾 保存</button>
           <button onclick="location.href='?'">❌ 取消</button>
@@ -91,13 +119,61 @@
       `
     }
 
-    // ========== 保存内容 ==========
+    // ========== 登录后进入编辑模式 ==========
+    function showLoginMode() {
+      app.innerHTML = `
+        <div class="login-box">
+          <h2>登录后编辑</h2>
+          <form onsubmit="loginForEdit(event)">
+            <label for="loginEmail">用户名/邮箱</label>
+            <input id="loginEmail" type="email" autocomplete="username" required>
+
+            <label for="loginPassword">密码</label>
+            <input id="loginPassword" type="password" autocomplete="current-password" required>
+
+            <button id="loginButton" type="submit">登录</button>
+            <button type="button" onclick="location.href='?'">取消</button>
+          </form>
+          <div id="message"></div>
+        </div>
+      `
+    }
+
+    async function loginForEdit(event) {
+      event.preventDefault()
+
+      const email = document.getElementById('loginEmail').value.trim()
+      const password = document.getElementById('loginPassword').value
+      const button = document.getElementById('loginButton')
+      const msg = document.getElementById('message')
+
+      button.disabled = true
+      msg.textContent = '登录中...'
+      msg.className = ''
+
+      const { error } = await supabaseClient.auth.signInWithPassword({
+        email,
+        password
+      })
+
+      if (error) {
+        msg.textContent = '登录失败: ' + error.message
+        msg.className = 'error'
+        button.disabled = false
+        return
+      }
+
+      msg.textContent = '登录成功，正在进入编辑页面...'
+      await showEditMode()
+    }
+
+    // ========== 保存 ==========
     async function saveContent() {
       const newText = document.getElementById('editText').value
 
-      const { error } = await supabase
+      const { error } = await supabaseClient  // ✅ 改这里
         .from(TABLE_NAME)
-        .update({ content: newText })  // UPDATE 修改这一行
+        .update({ content: newText })
         .eq('id', ROW_ID)
 
       const msg = document.getElementById('message')
@@ -106,25 +182,34 @@
         msg.style.color = 'red'
       } else {
         msg.textContent = '✅ 保存成功！'
-        setTimeout(() => location.href = '?', 500) // 半秒后返回只读模式
+        setTimeout(() => location.href = '?', 500)
       }
     }
 
-    // ========== 复制内容到剪贴板 ==========
-    function copyContent(text) {
-      navigator.clipboard.writeText(text).then(() => {
-        alert('已复制到剪贴板')
+    // ========== 复制 ==========
+    function copyContent() {
+      navigator.clipboard.writeText(window.currentContent || '').then(() => {
+        alert('已复制')
       })
     }
 
-    // ========== 工具：HTML 转义（防 XSS）==========
+    function copyRawLink() {
+      const url = new URL(window.location.href)
+      url.search = ''
+      url.searchParams.set('format', 'raw')
+
+      navigator.clipboard.writeText(url.toString()).then(() => {
+        alert('纯文字链接已复制')
+      })
+    }
+
+    // ========== 工具函数 ==========
     function escapeHtml(text) {
       const div = document.createElement('div')
       div.textContent = text
       return div.innerHTML
     }
 
-    // 启动
     init()
   </script>
 </body>
