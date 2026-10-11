@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>7cm 方图打印排版</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%2314549c'/%3E%3Crect x='7' y='7' width='18' height='18' fill='none' stroke='%23fff' stroke-width='2'/%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#eef1f4; --paper:#fff; --ink:#1c2733; --muted:#5c6b7a;
+  --line:#d7dee5; --line-soft:#e7ebef; --accent:#14549c; --accent-soft:#e9f1fb; --accent-strong:#0f3f77;
+  --danger:#b3401c; --danger-soft:#fbf0ea; --ok:#1f7a4d;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{font-family:"Microsoft YaHei","PingFang SC","Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--ink);font-size:14px;line-height:1.55}
+button{font-family:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.hidden{display:none !important}
+
+/* ===== 顶栏 ===== */
+.topbar{background:var(--paper);border-bottom:1px solid var(--line);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:12px}
+.brand h1{margin:0;font-size:18px;font-weight:700;letter-spacing:.2px}
+.tag{margin:2px 0 0;font-size:12.5px;color:var(--muted)}
+.topbar-right{display:flex;gap:10px;align-items:center}
+
+/* ===== 按钮 ===== */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:34px;padding:6px 14px;border:1px solid var(--line);background:var(--paper);color:var(--ink);border-radius:7px;font-size:13.5px;cursor:pointer;transition:background .15s,border-color .15s,color .15s}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary:hover{background:var(--accent-strong);border-color:var(--accent-strong);color:#fff}
+.btn.big{min-height:40px;padding:8px 18px;font-size:14px}
+.btn.small{min-height:32px;padding:3px 10px;font-size:12.5px}
+.icon-btn{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border:1px solid transparent;background:transparent;border-radius:6px;color:var(--muted);cursor:pointer}
+.icon-btn:hover{background:var(--line-soft);color:var(--ink)}
+.icon-btn.danger:hover{background:var(--danger-soft);color:var(--danger)}
+
+/* ===== 主布局 ===== */
+.app{display:grid;grid-template-columns:290px minmax(0,1fr) 320px;gap:14px;padding:14px;align-items:start;max-width:1520px;margin:0 auto}
+.panel{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:14px}
+.app>.panel{min-width:0}
+.panel-head{display:flex;justify-content:space-between;align-items:center;gap:8px;font-weight:600;font-size:14px;margin-bottom:12px}
+.sel-info{font-weight:400;font-size:12.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ===== 图片面板 ===== */
+.drop-zone{border:1.5px dashed var(--line);border-radius:8px;padding:16px 10px;text-align:center;color:var(--muted);font-size:12.5px;margin-bottom:12px;transition:border-color .15s,background .15s,color .15s}
+.drop-zone.over{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+.img-list{display:flex;flex-direction:column;gap:6px;max-height:calc(100vh - 300px);min-height:120px;overflow-y:auto;padding-right:2px}
+.list-empty{color:var(--muted);font-size:13px;text-align:center;padding:24px 0}
+.img-item{display:flex;align-items:center;gap:10px;padding:7px;border:1.5px solid transparent;border-radius:9px;cursor:pointer}
+.img-item:hover{background:var(--line-soft)}
+.img-item.selected{border-color:var(--accent);background:var(--accent-soft)}
+.img-thumb{width:50px;height:50px;border-radius:6px;object-fit:cover;border:1px solid var(--line);background:#f4f6f8;flex:none}
+.img-meta{flex:1;min-width:0}
+.img-name{font-size:13.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.img-dims{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.img-actions{display:flex;gap:4px;flex:none}
+
+/* ===== 页面面板 ===== */
+.page-panel{min-width:0}
+.grid-wrap{display:flex;flex-direction:column;align-items:center;gap:26px;padding:4px 0 12px;overflow-x:auto}
+.page-sec{display:flex;flex-direction:column;align-items:center;gap:8px}
+.page-label{font-size:12.5px;color:var(--muted)}
+.sheet{position:relative;background:var(--paper);border:1px solid var(--line-soft);box-shadow:0 4px 18px rgba(28,39,51,.12);border-radius:2px;flex:none}
+.grid-cell{position:absolute;display:flex;align-items:center;justify-content:center;background:#fbfcfd;border:1.5px dashed #b9c4cf;border-radius:3px;cursor:pointer;overflow:hidden}
+.grid-cell:hover{border-color:var(--accent);background:var(--accent-soft)}
+.grid-cell.filled{border:1.5px solid rgba(28,39,51,.14);background:var(--paper)}
+.grid-cell.filled:hover{background:var(--paper)}
+.cell-img{width:100%;height:100%;object-fit:cover;display:block}
+.cell-plus{font-size:22px;color:#9aa7b3;line-height:1}
+.cell-del{position:absolute;top:4px;right:4px;width:26px;height:26px;display:none;align-items:center;justify-content:center;border:none;border-radius:6px;background:rgba(28,39,51,.72);color:#fff;cursor:pointer}
+.grid-cell.filled:hover .cell-del{display:inline-flex}
+.cell-del:hover{background:var(--danger)}
+.add-page-wrap{padding:2px 0 18px}
+
+/* ===== 设置面板 ===== */
+.set-group{border-top:1px solid var(--line-soft);padding:12px 0}
+.set-group:first-of-type{border-top:none;padding-top:0}
+.set-label{font-size:12.5px;color:var(--muted);margin-bottom:6px}
+.preset-row{display:flex;gap:8px;flex-wrap:wrap}
+.set-note{font-size:12px;color:var(--muted);margin:7px 0 0}
+.set-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:9px 0}
+.set-row label{font-size:13px;flex:none}
+.set-row input[type=range]{flex:1;min-width:0;accent-color:var(--accent)}
+.val{font-size:12px;color:var(--muted);min-width:46px;text-align:right;flex:none}
+.set-row input[type=number]{width:76px;padding:5px 8px;border:1px solid var(--line);border-radius:6px;font-size:16px;text-align:right}
+.unit{font-size:12px;color:var(--muted)}
+.seg{display:flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.seg button{flex:1;min-width:44px;min-height:36px;border:none;background:var(--paper);color:var(--muted);font-size:13px;cursor:pointer}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button.on{background:var(--accent);color:#fff}
+.fit-line{font-size:12.5px;font-weight:600}
+.fit-line.ok{color:var(--ok)}
+.fit-line.bad{color:var(--danger)}
+.warn-box{margin-top:8px;display:flex;flex-direction:column;gap:5px}
+.warn-item{font-size:12px;color:var(--danger);line-height:1.5}
+.actions{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.actions .btn{padding:6px 4px;font-size:12.5px;min-height:38px;white-space:nowrap}
+.tips{font-size:12.5px}
+.tips ol{margin:6px 0 0;padding-left:18px;color:var(--muted)}
+.tips li{margin:3px 0}
+.tip-title{font-weight:600;margin-bottom:2px}
+
+/* ===== 弹窗 ===== */
+.modal{position:fixed;inset:0;z-index:100;display:none;align-items:center;justify-content:center;background:rgba(20,28,38,.55);padding:20px}
+.modal.open{display:flex}
+.modal-box{background:var(--paper);border-radius:12px;box-shadow:0 18px 60px rgba(0,0,0,.28);width:100%;max-width:900px;max-height:92vh;display:flex;flex-direction:column;overflow:hidden}
+.modal-head{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--line-soft)}
+.modal-head h3{margin:0;font-size:15px}
+.modal-head-actions{display:flex;gap:8px}
+.crop-box{max-width:960px}
+.crop-body{display:flex;gap:18px;padding:16px;flex-wrap:wrap;overflow-y:auto}
+.crop-left{flex:1 1 460px;min-width:280px}
+.crop-viewport{width:100%;max-width:480px;aspect-ratio:1;background:#141c24;border-radius:9px;overflow:hidden;position:relative;cursor:grab;touch-action:none;margin:0 auto}
+.crop-viewport:active{cursor:grabbing}
+#cropImg{position:absolute;left:0;top:0;transform-origin:0 0;user-select:none;-webkit-user-drag:none;pointer-events:none;max-width:none}
+.crop-zoom-row{display:flex;align-items:center;gap:10px;margin-top:12px;font-size:13px;color:var(--muted)}
+.crop-zoom-row input{flex:1;accent-color:var(--accent)}
+#cropZoomVal{min-width:46px;text-align:right;font-size:12px}
+.crop-info{font-size:12px;color:var(--muted);margin-top:8px;text-align:center}
+.crop-right{flex:1 1 250px;min-width:230px;display:flex;flex-direction:column;gap:12px}
+.crop-preview-box{text-align:center}
+#cropPreview{width:100%;max-width:220px;aspect-ratio:1;border:1px solid var(--line);border-radius:8px;background:#fff}
+.crop-preview-label{font-size:12px;color:var(--muted);margin-top:6px}
+.hint{font-size:12.5px;color:var(--muted);line-height:1.6;margin:0}
+.crop-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:auto}
+
+/* ===== 打印预览 ===== */
+.print-modal{padding:18px}
+.print-modal.open{display:block;overflow:auto}
+.print-modal-shell{width:100%;max-width:920px;margin:0 auto}
+.print-pages{display:flex;flex-direction:column;gap:30px;padding:10px 0 60px;align-items:center}
+.print-page-sec{display:flex;flex-direction:column;align-items:center;gap:10px}
+.print-page-wrap{width:126mm;height:178.2mm;overflow:hidden;border-radius:3px}
+.print-page{width:210mm;height:297mm;background:#fff;transform:scale(.6);transform-origin:top left;box-shadow:0 8px 30px rgba(0,0,0,.3)}
+.print-page img{width:210mm;height:297mm;display:block}
+.print-instructions{font-size:13px;color:var(--muted);background:var(--accent-soft);border:1px solid #cfe0f4;border-radius:8px;padding:9px 12px;margin:12px 0 4px}
+
+/* ===== toast ===== */
+.toast{position:fixed;left:50%;bottom:36px;transform:translateX(-50%) translateY(16px);background:rgba(28,39,51,.92);color:#fff;font-size:13px;padding:9px 18px;border-radius:8px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:200;max-width:80vw}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ===== 打印样式 ===== */
+@media print{
+  body>header, body>main, .modal:not(#printModal), #toast{display:none !important}
+  #printModal{display:block !important;position:static;padding:0;background:#fff;overflow:visible}
+  .print-modal-shell{max-width:none}
+  .print-pages{gap:0;padding:0;align-items:stretch}
+  .print-page-sec{gap:0}
+  .print-page-wrap{width:auto;height:auto;overflow:visible;border-radius:0}
+  .print-page{transform:none;box-shadow:none;margin:0;page-break-after:always}
+  .no-print{display:none !important}
+}
+@page{size:A4;margin:0}
+
+/* ===== 响应式 ===== */
+@media (max-width:1180px){
+  .app{grid-template-columns:270px minmax(0,1fr)}
+  .settings-panel{grid-column:1/-1}
+}
+@media (max-width:760px){
+  .app{grid-template-columns:1fr}
+  .img-panel{order:1}
+  .page-panel{order:2}
+  .settings-panel{order:3}
+  .crop-body{padding:12px}
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <svg viewBox="0 0 24 24" width="26" height="26" fill="none" aria-hidden="true">
+      <rect x="3.5" y="3.5" width="17" height="17" rx="2" stroke="#14549c" stroke-width="2"/>
+      <path d="M3.5 7.2h2.8M7.2 3.5v2.8" stroke="#14549c" stroke-width="1.7" stroke-linecap="round"/>
+    </svg>
+    <div>
+      <h1>7cm 方图打印排版</h1>
+      <p class="tag">自动裁成正方形，按 7cm 排到 A4 纸，带裁切线，300dpi 精确输出</p>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <button class="btn primary" id="btnUpload" type="button">选择图片</button>
+    <input type="file" id="fileInput" accept="image/*" multiple hidden>
+  </div>
+</header>
+
+<main class="app">
+  <!-- 左：图片库 -->
+  <aside class="panel img-panel">
+    <div class="panel-head"><span>图片库</span><span class="sel-info" id="imgCount"></span></div>
+    <div class="drop-zone" id="dropZone">把图片拖到这里，或点右上角「选择图片」</div>
+    <div class="img-list" id="imgList"></div>
+  </aside>
+
+  <!-- 中：A4 排版 -->
+  <section class="panel page-panel">
+    <div class="panel-head">
+      <span>A4 排版 · <span id="cellInfo"></span></span>
+      <span class="sel-info" id="selInfo"></span>
+    </div>
+    <div class="grid-wrap" id="gridWrap"></div>
+  </section>
+
+  <!-- 右：设置 -->
+  <aside class="panel settings-panel">
+    <div class="panel-head">排版与打印设置</div>
+
+    <div class="set-group">
+      <div class="set-label">布局预设</div>
+      <div class="preset-row">
+        <button class="btn" type="button" data-preset="p34">3×4 标准（12 格）</button>
+        <button class="btn" type="button" data-preset="p24">2×4 留裁剪边（8 格）</button>
+      </div>
+      <p class="set-note">修改布局后，已放置的图片会按格子顺序重新排布。</p>
+    </div>
+
+    <div class="set-group">
+      <div class="set-row">
+        <label>列数</label>
+        <div class="seg" id="segCols">
+          <button type="button" data-v="3">3</button>
+          <button type="button" data-v="2">2</button>
+        </div>
+      </div>
+      <div class="set-row">
+        <label>行数</label>
+        <div class="seg" id="segRows">
+          <button type="button" data-v="4">4</button>
+          <button type="button" data-v="3">3</button>
+        </div>
+      </div>
+      <div class="set-row">
+        <label>方块边长（mm）</label>
+        <input type="number" id="inpSize" min="30" max="100" step="0.5" value="70">
+        <span class="unit">mm</span>
+      </div>
+      <div class="set-row">
+        <label>水平间距</label>
+        <input type="range" id="inpGapX" min="0" max="30" step="1" value="0">
+        <span class="val" id="valGapX">0mm</span>
+      </div>
+      <div class="set-row">
+        <label>垂直间距</label>
+        <input type="range" id="inpGapY" min="0" max="20" step="1" value="0">
+        <span class="val" id="valGapY">0mm</span>
+      </div>
+      <div class="set-row">
+        <label>左右边距</label>
+        <input type="range" id="inpMarginX" min="0" max="30" step="1" value="0">
+        <span class="val" id="valMarginX">0mm</span>
+      </div>
+      <div class="set-row">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="chkAutoY" checked> 上下自动居中</label>
+      </div>
+      <div class="set-row hidden" id="rowMarginY">
+        <label>上下边距</label>
+        <input type="range" id="inpMarginY" min="0" max="30" step="1" value="8">
+        <span class="val" id="valMarginY">8mm</span>
+      </div>
+    </div>
+
+    <div class="set-group">
+      <div class="set-row">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="chkCut" checked> 裁切线（角标）</label>
+      </div>
+      <div class="set-row">
+        <label>裁切线长度</label>
+        <input type="range" id="inpCutLen" min="0" max="8" step="0.5" value="3">
+        <span class="val" id="valCutLen">3mm</span>
+      </div>
+      <div class="set-row">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="chkGrid"> 格线（方格边界）</label>
+      </div>
+    </div>
+
+    <div class="set-group">
+      <div class="fit-line" id="fitLine"></div>
+      <div class="warn-box" id="warnBox"></div>
+    </div>
+
+    <div class="set-group actions">
+      <button class="btn primary" id="btnPreview" type="button">打印预览</button>
+      <button class="btn" id="btnPdf" type="button">输出 PDF</button>
+      <button class="btn" id="btnClear" type="button">清空排版</button>
+    </div>
+
+    <div class="set-group tips">
+      <div class="tip-title">打印提示</div>
+      <ol>
+        <li>预览页点「打印」，纸张选 A4</li>
+        <li>缩放选「实际大小 / 100%」，不要选「适应页面」</li>
+        <li>边距选「无 / 默认」</li>
+        <li>也可直接点「输出 PDF」保存 300dpi 的 PDF 文件</li>
+        <li>成品若略大略小，微调「方块边长」补偿</li>
+      </ol>
+    </div>
+  </aside>
+</main>
+
+<!-- ===== 裁剪弹窗 ===== -->
+<div class="modal" id="cropModal" role="dialog" aria-modal="true" aria-hidden="true">
+  <div class="modal-box crop-box">
+    <div class="modal-head">
+      <h3 id="cropTitle">裁剪图片</h3>
+      <button class="icon-btn" type="button" data-close="cropModal" title="关闭"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg></button>
+    </div>
+    <div class="crop-body">
+      <div class="crop-left">
+        <div class="crop-viewport" id="cropViewport">
+          <img id="cropImg" alt="">
+        </div>
+        <div class="crop-zoom-row">
+          <span>缩放</span>
+          <input type="range" id="cropZoom" min="1" max="10" step="0.01" value="1">
+          <span id="cropZoomVal">1×</span>
+        </div>
+        <div class="crop-info" id="cropInfo"></div>
+      </div>
+      <div class="crop-right">
+        <div class="crop-preview-box">
+          <canvas id="cropPreview" width="220" height="220"></canvas>
+          <div class="crop-preview-label">裁剪效果（打印即此正方形）</div>
+        </div>
+        <p class="hint">拖动图片调整位置；滚轮或滑条缩放。选区始终是正方形，将按设置的边长打印。</p>
+        <div class="crop-actions">
+          <button class="btn" id="cropReset" type="button">重置为居中</button>
+          <button class="btn" type="button" data-close="cropModal">取消</button>
+          <button class="btn primary" id="cropApply" type="button">应用</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 打印预览弹窗 ===== -->
+<div class="modal print-modal" id="printModal" role="dialog" aria-modal="true" aria-hidden="true">
+  <div class="print-modal-shell">
+    <div class="modal-head no-print">
+      <h3>打印预览（300dpi 渲染，与打印结果一致）</h3>
+      <div class="modal-head-actions">
+        <button class="btn" type="button" data-close="printModal">关闭</button>
+        <button class="btn primary" id="btnPdf2" type="button">输出 PDF</button>
+        <button class="btn primary" id="btnPrint" type="button">打印</button>
+      </div>
+    </div>
+    <div class="print-instructions no-print">
+      <b>打印设置：</b>纸张 A4 · 缩放「实际大小 / 100%」· 边距「无 / 默认」。若成品尺寸有偏差，回到设置里微调「方块边长」。
+    </div>
+    <div class="print-pages" id="printPages"></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* ================================================================
+ * 7cm 方图打印排版
+ * 数据模型：
+ *   images    [{id, name, el, natW, natH, crop:{x,y,s}, thumb}]
+ *             crop.x/y/s 为原图自然像素坐标系中的正方形选区（左上角 x/y，边长 s）
+ *   placements[{id, imgId, cell}]   cell 为跨页连续格子序号
+ *   layout    {cols, rows, sizeMm, gapX, gapY, marginX, marginAutoY, marginY, cutLen, showCut, showGrid}
+ * ================================================================ */
+const state = {
+  images: [],
+  placements: [],
+  selectedId: null,
+  explicitPages: 1,
+  layout: { cols:3, rows:4, sizeMm:70, gapX:0, gapY:0, marginX:0, marginAutoY:true, marginY:8, cutLen:3, showCut:true, showGrid:false }
+};
+let uid = 1;
+const A4W = 210, A4H = 297;        // A4 物理尺寸（mm）
+const MM = 300 / 25.4;             // 打印渲染分辨率：300dpi → px/mm
+const OUT_PX = Math.round(70 * MM); // 7cm 在 300dpi 下的像素边长（827px）
+const $ = s => document.querySelector(s);
+const X_SVG = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>';
+
+/* ===== 布局计算 ===== */
+function layoutMetrics(){
+  const L = state.layout;
+  const usedW = L.cols * L.sizeMm + (L.cols - 1) * L.gapX + 2 * L.marginX;
+  const usedH = L.rows * L.sizeMm + (L.rows - 1) * L.gapY + (L.marginAutoY ? 0 : 2 * L.marginY);
+  const freeH = A4H - usedH;
+  const marginTop = L.marginAutoY ? (freeH > 0 ? freeH / 2 : 0) : L.marginY;
+  return { usedW, usedH, marginTop, fitsW: usedW <= A4W + 0.01, fitsH: usedH <= A4H + 0.01 };
+}
+function cellsPerPage(){ return state.layout.cols * state.layout.rows; }
+function pageCount(){
+  const maxCell = state.placements.reduce((m, p) => Math.max(m, p.cell), -1);
+  const needed = maxCell >= 0 ? Math.floor(maxCell / cellsPerPage()) + 1 : 0;
+  return Math.max(1, state.explicitPages, needed);
+}
+
+/* ===== 渲染入口 ===== */
+function renderAll(){ renderImageList(); renderGrid(); renderFit(); renderSettings(); }
+
+function renderFit(){
+  const L = state.layout, m = layoutMetrics();
+  $('#cellInfo') && ($('#cellInfo').textContent = `${cellsPerPage()} 格/页 · 共 ${pageCount()} 页`);
+  const sel = state.images.find(i => i.id === state.selectedId);
+  $('#selInfo').textContent = sel ? '当前图片：' + sel.name : '未选图片：点击格子可放置';
+  const fit = $('#fitLine');
+  fit.textContent = `占用 ${m.usedW.toFixed(1)} × ${m.usedH.toFixed(1)} mm（A4 为 ${A4W} × ${A4H} mm）`;
+  fit.className = 'fit-line ' + ((m.fitsW && m.fitsH) ? 'ok' : 'bad');
+  const warns = [];
+  if (!m.fitsW) warns.push(`宽度超出 A4 约 ${(m.usedW - A4W).toFixed(1)}mm，请减小左右边距、水平间距或列数。`);
+  if (!m.fitsH) warns.push(`高度超出 A4 约 ${(m.usedH - A4H).toFixed(1)}mm，请减小上下边距、垂直间距或行数。`);
+  if (L.showCut && L.cutLen > 0){
+    const clearX = Math.min(L.marginX, L.gapX / 2);
+    const clearY = Math.min(m.marginTop, L.gapY / 2);
+    if (clearX < L.cutLen) warns.push(`左右方向留白 ${Math.max(clearX, 0).toFixed(1)}mm 小于裁切线 ${L.cutLen}mm，角标会压到相邻图片或纸边；建议切到「2×4 留裁剪边」或增大间距。`);
+    if (clearY < L.cutLen) warns.push(`上下方向留白 ${Math.max(clearY, 0).toFixed(1)}mm 小于裁切线 ${L.cutLen}mm，角标会压到相邻图片；建议增大垂直间距。`);
+  }
+  if (L.marginX <= 0.5 && m.usedW >= A4W - 0.01) warns.push('当前 3 列铺满整页宽度、贴到纸边：若打印机不支持无边距，两侧内容可能打印不全。');
+  const box = $('#warnBox'); box.innerHTML = '';
+  warns.forEach(w => { const d = document.createElement('div'); d.className = 'warn-item'; d.textContent = '· ' + w; box.append(d); });
+}
+
+/* ===== 图片库 ===== */
+function handleFiles(list){
+  if (!list || !list.length) return;
+  for (const f of list){ if (f.type && !f.type.startsWith('image/')) continue; addFile(f); }
+}
+function addFile(f){
+  const url = URL.createObjectURL(f);
+  const im = new Image();
+  im.onload = () => {
+    const natW = im.naturalWidth || im.width, natH = im.naturalHeight || im.height;
+    if (!natW || !natH){ flash('无法读取图片：' + (f.name || '')); return; }
+    const s = Math.min(natW, natH);
+    const img = { id: uid++, name: f.name || ('图片' + uid), el: im, natW, natH,
+                  crop: { x: (natW - s) / 2, y: (natH - s) / 2, s }, thumb: null };
+    state.images.push(img);
+    state.selectedId = img.id;
+    renderAll();
+  };
+  im.onerror = () => flash('图片加载失败：' + (f.name || ''));
+  im.src = url;
+}
+function removeImage(id){
+  state.images = state.images.filter(i => i.id !== id);
+  state.placements = state.placements.filter(p => p.imgId !== id);
+  if (state.selectedId === id) state.selectedId = state.images.length ? state.images[0].id : null;
+  renderAll();
+}
+function thumbFor(img, px = 128){
+  const sig = img.crop.x.toFixed(2) + '|' + img.crop.y.toFixed(2) + '|' + img.crop.s.toFixed(2);
+  if (img.thumb && img.thumb.sig === sig && img.thumb.px === px) return img.thumb.url;
+  const c = document.createElement('canvas'); c.width = c.height = px;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, px, px);
+  ctx.drawImage(img.el, img.crop.x, img.crop.y, img.crop.s, img.crop.s, 0, 0, px, px);
+  const url = c.toDataURL('image/png');
+  img.thumb = { sig, px, url };
+  return url;
+}
+function renderImageList(){
+  const list = $('#imgList'); list.innerHTML = '';
+  $('#imgCount').textContent = state.images.length ? `（${state.images.length} 张）` : '';
+  if (!state.images.length){
+    const e = document.createElement('div'); e.className = 'list-empty';
+    e.textContent = '还没有图片，先上传几张吧';
+    list.append(e); return;
+  }
+  state.images.forEach(img => {
+    const item = document.createElement('div');
+    item.className = 'img-item' + (img.id === state.selectedId ? ' selected' : '');
+    item.dataset.id = img.id;
+    const th = document.createElement('img'); th.className = 'img-thumb'; th.src = thumbFor(img); th.alt = '';
+    const meta = document.createElement('div'); meta.className = 'img-meta';
+    const name = document.createElement('div'); name.className = 'img-name'; name.textContent = img.name; name.title = img.name;
+    const dim = document.createElement('div'); dim.className = 'img-dims';
+    dim.textContent = `选区 ${Math.round(img.crop.s)}×${Math.round(img.crop.s)}px · 原图 ${img.natW}×${img.natH}`;
+    meta.append(name, dim);
+    const acts = document.createElement('div'); acts.className = 'img-actions';
+    const bCrop = document.createElement('button'); bCrop.className = 'btn small'; bCrop.textContent = '裁剪'; bCrop.dataset.act = 'crop'; bCrop.type = 'button';
+    const bDel = document.createElement('button'); bDel.className = 'icon-btn danger'; bDel.dataset.act = 'del'; bDel.title = '删除图片'; bDel.type = 'button'; bDel.innerHTML = X_SVG;
+    acts.append(bCrop, bDel);
+    item.append(th, meta, acts);
+    item.addEventListener('click', e => {
+      const t = e.target.closest('button');
+      if (t && t.dataset.act === 'crop'){ e.stopPropagation(); openCrop(img.id); return; }
+      if (t && t.dataset.act === 'del'){ e.stopPropagation(); removeImage(img.id); return; }
+      state.selectedId = img.id; renderAll();
+    });
+    list.append(item);
+  });
+}
+
+/* ===== 提示 ===== */
+let toastTimer = null;
+function flash(msg){
+  let t = $('#toast');
+  if (!t){ t = document.createElement('div'); t.id = 'toast'; t.className = 'toast'; document.body.append(t); }
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 1800);
+}
+
+/* ===== A4 网格渲染 ===== */
+function renderGrid(){
+  const wrap = $('#gridWrap'); wrap.innerHTML = '';
+  const L = state.layout, m = layoutMetrics();
+  const scale = 2;                       // 编辑区 2px/mm
+  const pc = pageCount(), cap = cellsPerPage();
+  const neededPages = state.placements.length ? Math.floor(state.placements[state.placements.length - 1].cell / cap) + 1 : 0;
+  for (let p = 0; p < pc; p++){
+    const sec = document.createElement('div'); sec.className = 'page-sec';
+    const used = state.placements.filter(q => Math.floor(q.cell / cap) === p).length;
+    const label = document.createElement('div'); label.className = 'page-label';
+    label.textContent = `第 ${p + 1} 页 · 已放 ${used}/${cap} 格`;
+    const sheet = document.createElement('div'); sheet.className = 'sheet';
+    sheet.style.width = (A4W * scale) + 'px'; sheet.style.height = (A4H * scale) + 'px';
+    for (let c = 0; c < cap; c++){
+      const idx = p * cap + c;
+      const col = c % L.cols, row = Math.floor(c / L.cols);
+      const cell = document.createElement('div'); cell.className = 'grid-cell';
+      cell.style.left = ((L.marginX + col * (L.sizeMm + L.gapX)) * scale) + 'px';
+      cell.style.top  = ((m.marginTop + row * (L.sizeMm + L.gapY)) * scale) + 'px';
+      cell.style.width  = (L.sizeMm * scale) + 'px';
+      cell.style.height = (L.sizeMm * scale) + 'px';
+      cell.dataset.idx = idx;
+      cell.title = state.selectedId ? '把当前图片放到这里' : '点击放置（先选图片）';
+      const pl = state.placements.find(q => q.cell === idx);
+      if (pl){
+        const img = state.images.find(i => i.id === pl.imgId);
+        if (img){
+          cell.classList.add('filled');
+          const im = document.createElement('img'); im.className = 'cell-img'; im.src = thumbFor(img); im.alt = '';
+          const del = document.createElement('button'); del.className = 'cell-del'; del.title = '移除此格'; del.type = 'button'; del.innerHTML = X_SVG;
+          del.addEventListener('click', ev => { ev.stopPropagation(); removeAt(idx); });
+          cell.append(im, del);
+        } else {
+          cell.append(plusEl());
+        }
+      } else {
+        cell.append(plusEl());
+      }
+      cell.addEventListener('click', () => cellClick(idx));
+      sheet.append(cell);
+    }
+    sec.append(label, sheet);
+    wrap.append(sec);
+  }
+  const addBtn = document.createElement('button'); addBtn.className = 'btn'; addBtn.type = 'button';
+  if (state.explicitPages > neededPages){
+    addBtn.textContent = '移除空白页';
+    addBtn.addEventListener('click', () => { state.explicitPages = Math.max(1, state.explicitPages - 1); renderAll(); });
+  } else {
+    addBtn.textContent = '＋ 添加一页';
+    addBtn.addEventListener('click', () => { state.explicitPages = pageCount() + 1; renderAll(); });
+  }
+  const addWrap = document.createElement('div'); addWrap.className = 'add-page-wrap'; addWrap.append(addBtn);
+  wrap.append(addWrap);
+}
+function plusEl(){
+  const span = document.createElement('span'); span.className = 'cell-plus'; span.textContent = '+';
+  return span;
+}
+function cellClick(idx){
+  if (!state.selectedId){ flash('请先在左侧选择一张图片'); return; }
+  const pl = state.placements.find(q => q.cell === idx);
+  if (pl){
+    if (pl.imgId === state.selectedId){ removeAt(idx); flash('已移除这一格'); }
+    else { pl.imgId = state.selectedId; flash('已替换为当前图片'); renderAll(); }
+  } else {
+    state.placements.push({ id: uid++, imgId: state.selectedId, cell: idx });
+    state.placements.sort((a, b) => a.cell - b.cell);
+    renderAll();
+  }
+}
+function removeAt(idx){
+  state.placements = state.placements.filter(q => q.cell !== idx);
+  renderAll();
+}
+function reindexPlacements(){
+  state.placements.sort((a, b) => a.cell - b.cell);
+  state.placements.forEach((p, i) => p.cell = i);
+}
+function setLayout(patch){
+  Object.assign(state.layout, patch);
+  reindexPlacements();
+  renderAll();
+}
+
+/* ===== 裁剪弹窗 ===== */
+const CM = { img: null, vp: 480, z: 1, ox: 0, oy: 0 };
+function openCrop(id){
+  const img = state.images.find(i => i.id === id);
+  if (!img) return;
+  CM.img = img;
+  $('#cropTitle').textContent = '裁剪：' + img.name;
+  const modal = $('#cropModal');
+  modal.classList.add('open');
+  modal.setAttribute('aria-hidden', 'false');
+  CM.vp = Math.max(240, Math.round($('#cropViewport').getBoundingClientRect().width) || 480);
+  const s = img.crop.s;
+  CM.z = CM.vp / s;
+  CM.ox = -img.crop.x * CM.z;
+  CM.oy = -img.crop.y * CM.z;
+  clampCrop(); syncCropUI(); drawCrop();
+}
+function minCropZoom(){ return Math.max(CM.vp / CM.img.natW, CM.vp / CM.img.natH); }
+function clampCrop(){
+  const mz = minCropZoom();
+  CM.z = Math.max(mz, CM.z);
+  const minOx = CM.vp - CM.img.natW * CM.z;
+  const minOy = CM.vp - CM.img.natH * CM.z;
+  CM.ox = Math.max(minOx, Math.min(0, CM.ox));
+  CM.oy = Math.max(minOy, Math.min(0, CM.oy));
+}
+function syncCropUI(){
+  const mz = minCropZoom();
+  const zoomEl = $('#cropZoom');
+  zoomEl.min = mz.toFixed(3); zoomEl.max = (mz * 8).toFixed(3); zoomEl.step = 0.01;
+  zoomEl.value = CM.z.toFixed(3);
+  $('#cropZoomVal').textContent = CM.z.toFixed(2) + '×';
+}
+function drawCrop(){
+  const imgEl = $('#cropImg'), im = CM.img;
+  imgEl.style.width = im.natW + 'px';
+  imgEl.style.height = im.natH + 'px';
+  imgEl.style.transform = `translate(${CM.ox}px, ${CM.oy}px) scale(${CM.z})`;
+  const s = CM.vp / CM.z, x = -CM.ox / CM.z, y = -CM.oy / CM.z;
+  const pv = $('#cropPreview'), ctx = pv.getContext('2d');
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, pv.width, pv.height);
+  ctx.drawImage(im.el, x, y, s, s, 0, 0, pv.width, pv.height);
+  const needUp = s < OUT_PX;
+  $('#cropInfo').innerHTML = `选区 ${Math.round(s)} × ${Math.round(s)} px（原图 ${im.natW}×${im.natH}）` +
+    (needUp ? ` · 输出 ${OUT_PX}px，将放大 ${(OUT_PX / s).toFixed(2)}×，清晰度略降` : ' · 输出无需放大，清晰');
+}
+let cropDrag = null;
+function bindCropEvents(){
+  const vp = $('#cropViewport');
+  vp.addEventListener('pointerdown', e => {
+    cropDrag = { sx: e.clientX, sy: e.clientY, ox: CM.ox, oy: CM.oy };
+    vp.setPointerCapture(e.pointerId);
+  });
+  vp.addEventListener('pointermove', e => {
+    if (!cropDrag) return;
+    CM.ox = cropDrag.ox + (e.clientX - cropDrag.sx);
+    CM.oy = cropDrag.oy + (e.clientY - cropDrag.sy);
+    clampCrop(); drawCrop();
+  });
+  ['pointerup', 'pointercancel'].forEach(ev => vp.addEventListener(ev, () => { cropDrag = null; }));
+  vp.addEventListener('wheel', e => {
+    e.preventDefault();
+    const mz = minCropZoom();
+    const f = e.deltaY < 0 ? 1.12 : 1 / 1.12;
+    CM.z = Math.max(mz, Math.min(mz * 8, CM.z * f));
+    clampCrop(); syncCropUI(); drawCrop();
+  }, { passive: false });
+  $('#cropZoom').addEventListener('input', e => {
+    CM.z = parseFloat(e.target.value); clampCrop(); drawCrop();
+  });
+  $('#cropReset').addEventListener('click', () => {
+    CM.z = minCropZoom();
+    CM.ox = (CM.vp - CM.img.natW * CM.z) / 2;
+    CM.oy = (CM.vp - CM.img.natH * CM.z) / 2;
+    syncCropUI(); drawCrop();
+  });
+  $('#cropApply').addEventListener('click', () => {
+    const s = CM.vp / CM.z;
+    CM.img.crop = { x: -CM.ox / CM.z, y: -CM.oy / CM.z, s };
+    CM.img.thumb = null;
+    closeModal('cropModal');
+    renderAll();
+    flash('裁剪已应用');
+  });
+  window.addEventListener('resize', () => {
+    if (CM.img && $('#cropModal').classList.contains('open')){
+      CM.vp = Math.max(240, Math.round($('#cropViewport').getBoundingClientRect().width) || 480);
+      clampCrop(); syncCropUI(); drawCrop();
+    }
+  });
+}
+function closeModal(id){
+  const m = document.getElementById(id);
+  if (m){ m.classList.remove('open'); m.setAttribute('aria-hidden', 'true'); }
+}
+
+/* ===== 打印渲染（300dpi Canvas） ===== */
+function renderPrintPages(){
+  const L = state.layout, m = layoutMetrics();
+  const pw = Math.round(A4W * MM), ph = Math.round(A4H * MM);
+  const cap = cellsPerPage(), pc = pageCount();
+  const out = [];
+  for (let p = 0; p < pc; p++){
+    const pls = state.placements.filter(q => Math.floor(q.cell / cap) === p);
+    if (!pls.length) continue;
+    const cv = document.createElement('canvas');
+    cv.width = pw; cv.height = ph;
+    const ctx = cv.getContext('2d');
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, pw, ph);
+    ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+    pls.forEach(pl => {
+      const img = state.images.find(i => i.id === pl.imgId);
+      if (!img) return;
+      const col = pl.cell % L.cols, row = Math.floor(pl.cell / L.cols);
+      const x = (L.marginX + col * (L.sizeMm + L.gapX)) * MM;
+      const y = (m.marginTop + row * (L.sizeMm + L.gapY)) * MM;
+      const s = L.sizeMm * MM;
+      ctx.drawImage(img.el, img.crop.x, img.crop.y, img.crop.s, img.crop.s, x, y, s, s);
+      if (L.showGrid){
+        ctx.strokeStyle = '#3a4650'; ctx.lineWidth = 0.15 * MM;
+        ctx.strokeRect(x, y, s, s);
+      }
+      if (L.showCut && L.cutLen > 0) drawCutMarks(ctx, x, y, s, L.cutLen * MM);
+    });
+    out.push(cv.toDataURL('image/jpeg', 0.92));
+  }
+  return out;
+}
+function drawCutMarks(ctx, x, y, s, L){
+  // 四角外扩 L 形裁切线（长度 L，从方块角点向外延伸）
+  ctx.strokeStyle = '#000000'; ctx.lineWidth = 0.2 * MM; ctx.lineCap = 'butt';
+  ctx.beginPath();
+  ctx.moveTo(x, y - L); ctx.lineTo(x, y); ctx.lineTo(x - L, y);
+  ctx.moveTo(x + s, y - L); ctx.lineTo(x + s, y); ctx.lineTo(x + s + L, y);
+  ctx.moveTo(x, y + s + L); ctx.lineTo(x, y + s); ctx.lineTo(x - L, y + s);
+  ctx.moveTo(x + s, y + s + L); ctx.lineTo(x + s, y + s); ctx.lineTo(x + s + L, y + s);
+  ctx.stroke();
+}
+function openPrint(){
+  const pages = renderPrintPages();
+  const box = $('#printPages'); box.innerHTML = '';
+  if (!pages.length){ flash('还没有放置任何图片，无法预览'); return; }
+  pages.forEach((url, i) => {
+    const sec = document.createElement('div'); sec.className = 'print-page-sec';
+    const dl = document.createElement('button'); dl.className = 'btn small no-print'; dl.type = 'button';
+    dl.textContent = `下载第 ${i + 1} 页 PNG（300dpi）`;
+    dl.addEventListener('click', () => {
+      const a = document.createElement('a');
+      a.href = url; a.download = `7cm方图-A4-第${i + 1}页.png`;
+      document.body.append(a); a.click(); a.remove();
+    });
+    const wrap = document.createElement('div'); wrap.className = 'print-page-wrap';
+    const page = document.createElement('div'); page.className = 'print-page';
+    const im = document.createElement('img'); im.src = url; im.alt = `第 ${i + 1} 页`;
+    page.append(im); wrap.append(page);
+    sec.append(dl, wrap); box.append(sec);
+  });
+  const modal = $('#printModal');
+  modal.classList.add('open'); modal.setAttribute('aria-hidden', 'false');
+}
+
+/* ===== PDF 导出（原生实现，无需外部库） ===== */
+function buildPdfBlob(pages){
+  // 每页为整版 JPEG（2480×3508，300dpi A4），逐页嵌入 PDF，页面尺寸精确 A4（点）
+  const W = (A4W / 25.4 * 72).toFixed(4);   // 595.2756
+  const H = (A4H / 25.4 * 72).toFixed(4);   // 841.8898
+  const n = pages.length;
+  const enc = new TextEncoder();
+  const jpegs = pages.map(u => {
+    const bin = atob(u.slice(u.indexOf(',') + 1));
+    const arr = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    return arr;
+  });
+  const chunks = [];
+  let offset = 0;
+  const xref = [];
+  const push = s => { const b = enc.encode(s); chunks.push(b); const o = offset; offset += b.length; return o; };
+  const pushRaw = a => { chunks.push(a); const o = offset; offset += a.length; return o; };
+  const objStart = num => { xref[num] = offset; };
+
+  push('%PDF-1.4\n%Doubao 7cm print tool\n');
+  objStart(1); push('1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n');
+  objStart(2);
+  let kids = '';
+  for (let i = 0; i < n; i++) kids += `${3 + i} 0 R `;
+  push(`2 0 obj\n<< /Type /Pages /Kids [${kids.trim()}] /Count ${n} >>\nendobj\n`);
+  for (let i = 0; i < n; i++){
+    const imgObj = 3 + n + 2 * i, conObj = imgObj + 1;
+    objStart(3 + i);
+    push(`${3 + i} 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${W} ${H}] /Resources << /XObject << /Im${i} ${imgObj} 0 R >> >> /Contents ${conObj} 0 R >>\nendobj\n`);
+    objStart(imgObj);
+    push(`${imgObj} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${Math.round(A4W * MM)} /Height ${Math.round(A4H * MM)} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpegs[i].length} >>\nstream\n`);
+    pushRaw(jpegs[i]);
+    push('\nendstream\nendobj\n');
+    const cs = `q\n${W} 0 0 ${H} 0 0 cm\n/Im${i} Do\nQ\n`;
+    objStart(conObj);
+    push(`${conObj} 0 obj\n<< /Length ${enc.encode(cs).length} >>\nstream\n${cs}endstream\nendobj\n`);
+  }
+  const xrefOffset = offset;
+  const totalObj = 3 * n + 2;              // catalog + pages + n 页 + n 图 + n 内容流
+  push(`xref\n0 ${totalObj + 1}\n`);
+  push('0000000000 65535 f \n');
+  for (let i = 1; i <= totalObj; i++) push(String(xref[i]).padStart(10, '0') + ' 00000 n \n');
+  push(`trailer\n<< /Size ${totalObj + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`);
+
+  let total = 0;
+  for (const c of chunks) total += c.length;
+  const out = new Uint8Array(total);
+  let p = 0;
+  for (const c of chunks){ out.set(c, p); p += c.length; }
+  return new Blob([out], { type: 'application/pdf' });
+}
+function downloadBlob(blob, filename){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+function exportPdf(){
+  const pages = renderPrintPages();
+  if (!pages.length){ flash('还没有放置任何图片，无法导出'); return; }
+  const blob = buildPdfBlob(pages);
+  downloadBlob(blob, '7cm方图打印-A4.pdf');
+  flash(`已导出 PDF（${pages.length} 页 · 300dpi）`);
+}
+
+/* ===== 设置面板 ===== */
+function renderSettings(){
+  const L = state.layout;
+  segOn('#segCols', L.cols); segOn('#segRows', L.rows);
+  $('#inpSize').value = L.sizeMm;
+  setRange('#inpGapX', L.gapX, '#valGapX');
+  setRange('#inpGapY', L.gapY, '#valGapY');
+  setRange('#inpMarginX', L.marginX, '#valMarginX');
+  $('#chkAutoY').checked = L.marginAutoY;
+  $('#rowMarginY').classList.toggle('hidden', L.marginAutoY);
+  setRange('#inpMarginY', L.marginY, '#valMarginY');
+  $('#chkCut').checked = L.showCut;
+  setRange('#inpCutLen', L.cutLen, '#valCutLen');
+  $('#chkGrid').checked = L.showGrid;
+}
+function segOn(sel, v){
+  $(sel).querySelectorAll('button').forEach(b => b.classList.toggle('on', parseInt(b.dataset.v, 10) === v));
+}
+function setRange(sel, v, valSel){
+  $(sel).value = v;
+  $(valSel).textContent = v + 'mm';
+}
+function applyPreset(k){
+  const L = state.layout;
+  if (k === 'p34') Object.assign(L, { cols: 3, rows: 4, gapX: 0, gapY: 0, marginX: 0, marginAutoY: true });
+  if (k === 'p24') Object.assign(L, { cols: 2, rows: 4, gapX: 20, gapY: 0, marginX: 25, marginAutoY: true });
+  reindexPlacements(); renderAll(); renderSettings();
+  flash(k === 'p34' ? '已应用：3×4 标准布局' : '已应用：2×4 留裁剪边布局');
+}
+
+/* ===== 事件绑定与初始化 ===== */
+function bindSettings(){
+  $('#btnUpload').addEventListener('click', () => $('#fileInput').click());
+  $('#fileInput').addEventListener('change', e => { handleFiles(e.target.files); e.target.value = ''; });
+  const dz = $('#dropZone');
+  ['dragenter', 'dragover'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add('over'); }));
+  ['dragleave', 'drop'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.remove('over'); }));
+  dz.addEventListener('drop', e => handleFiles(e.dataTransfer.files));
+  dz.addEventListener('click', () => $('#fileInput').click());
+
+  document.querySelectorAll('[data-preset]').forEach(b => b.addEventListener('click', () => applyPreset(b.dataset.preset)));
+  $('#segCols').querySelectorAll('button').forEach(b => b.addEventListener('click', () => setLayout({ cols: parseInt(b.dataset.v, 10) })));
+  $('#segRows').querySelectorAll('button').forEach(b => b.addEventListener('click', () => setLayout({ rows: parseInt(b.dataset.v, 10) })));
+
+  $('#inpSize').addEventListener('input', e => {
+    let v = parseFloat(e.target.value);
+    if (isNaN(v)) return;
+    v = Math.max(30, Math.min(100, v));
+    setLayout({ sizeMm: v });
+  });
+  $('#inpGapX').addEventListener('input', e => setLayout({ gapX: parseFloat(e.target.value) }));
+  $('#inpGapY').addEventListener('input', e => setLayout({ gapY: parseFloat(e.target.value) }));
+  $('#inpMarginX').addEventListener('input', e => setLayout({ marginX: parseFloat(e.target.value) }));
+  $('#inpMarginY').addEventListener('input', e => setLayout({ marginY: parseFloat(e.target.value) }));
+  $('#chkAutoY').addEventListener('change', e => setLayout({ marginAutoY: e.target.checked }));
+  $('#chkCut').addEventListener('change', e => setLayout({ showCut: e.target.checked }));
+  $('#inpCutLen').addEventListener('input', e => setLayout({ cutLen: parseFloat(e.target.value) }));
+  $('#chkGrid').addEventListener('change', e => setLayout({ showGrid: e.target.checked }));
+
+  $('#btnPreview').addEventListener('click', openPrint);
+  $('#btnPdf').addEventListener('click', exportPdf);
+  $('#btnPdf2').addEventListener('click', exportPdf);
+  $('#btnPrint').addEventListener('click', () => window.print());
+  $('#btnClear').addEventListener('click', () => {
+    if (!state.placements.length){ flash('排版已是空的'); return; }
+    if (clearArmed){
+      clearArmed = false;
+      state.placements = []; state.explicitPages = 1;
+      renderAll(); renderSettings();
+      flash('已清空排版（图片保留）');
+    } else {
+      clearArmed = true;
+      const b = $('#btnClear'), old = b.textContent;
+      b.textContent = '再点一次确认清空';
+      setTimeout(() => { if (clearArmed){ clearArmed = false; b.textContent = old; } }, 2600);
+    }
+  });
+  document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => closeModal(b.dataset.close)));
+  document.querySelectorAll('.modal').forEach(m => {
+    m.addEventListener('click', e => { if (e.target === m) closeModal(m.id); });
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') document.querySelectorAll('.modal.open').forEach(m => closeModal(m.id));
+  });
+}
+let clearArmed = false;
+
+function init(){
+  bindSettings();
+  bindCropEvents();
+  renderAll();
+  renderSettings();
+  window.addEventListener('beforeprint', () => {
+    if (state.placements.length && !$('#printModal').classList.contains('open')) openPrint();
+  });
+}
+init();
+
+</script>
+</body>
+</html>
